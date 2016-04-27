@@ -29,6 +29,7 @@
 #include "vstdlib/random.h"
 #include "engine/IEngineSound.h"
 #include "movevars_shared.h"
+#include "particle_parse.h" // DispatchParticleEffect
 
 #include "AI_Hint.h"
 #include "AI_Senses.h"
@@ -41,6 +42,7 @@
 ConVar sk_bullsquid_health( "sk_bullsquid_health", "100" );
 ConVar sk_bullsquid_dmg_bite( "sk_bullsquid_dmg_bite", "15" );
 ConVar sk_bullsquid_dmg_whip( "sk_bullsquid_dmg_whip", "25" );
+ConVar sk_bullsquid_spit_speed( "sk_bullsquid_spit_speed", "100", FCVAR_NONE, "Speed at which an antlion spit grenade travels." );
 
 //=========================================================
 // monster-specific schedule types
@@ -87,6 +89,7 @@ int	g_interactionBullsquidThrow		= 0;
 #define		BSQUID_AE_HOP		( 5 )
 #define		BSQUID_AE_THROW		( 6 )
 #define		BSQUID_AE_WHIP_SND	( 7 )
+//#define		BSQUID_AE_TAILWHIP	( 8 )
 
 LINK_ENTITY_TO_CLASS( npc_bullsquid, CNPC_Bullsquid );
 
@@ -107,7 +110,9 @@ BEGIN_DATADESC( CNPC_Bullsquid )
 //	DEFINE_FIELD( m_nSquidSpitSprite,	FIELD_INTEGER ),
 	DEFINE_FIELD( m_flHungryTime,		FIELD_TIME ),
 	DEFINE_FIELD( m_nextSquidSoundTime,	FIELD_TIME ),
-
+	DEFINE_FIELD( m_vecSaveSpitVelocity, FIELD_VECTOR),
+	
+	
 END_DATADESC()
 
 
@@ -154,6 +159,8 @@ void CNPC_Bullsquid::Precache()
 
 	UTIL_PrecacheOther( "grenade_spit" );
 
+	PrecacheParticleSystem( "blood_impact_yellow_01" );
+	
 	PrecacheScriptSound( "NPC_Bullsquid.Idle" );
 	PrecacheScriptSound( "NPC_Bullsquid.Pain" );
 	PrecacheScriptSound( "NPC_Bullsquid.Alert" );
@@ -161,7 +168,9 @@ void CNPC_Bullsquid::Precache()
 	PrecacheScriptSound( "NPC_Bullsquid.Attack1" );
 	PrecacheScriptSound( "NPC_Bullsquid.Growl" );
 	PrecacheScriptSound( "NPC_Bullsquid.TailWhip");
-
+	PrecacheScriptSound( "NPC_Antlion.PoisonShoot" );
+	PrecacheScriptSound( "NPC_Antlion.PoisonBall" );
+	
 	BaseClass::Precache();
 }
 
@@ -262,6 +271,8 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 		{
 			if ( GetEnemy() )
 			{
+				// Replace original bullsquid spit code with antlion worker code
+				/*
 				Vector vSpitPos;
 
 				GetAttachment( "Mouth", vSpitPos );
@@ -272,7 +283,8 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 				float flGravity  = SPIT_GRAVITY;
 				ThrowLimit(vSpitPos, vTarget, flGravity, 3, Vector(0,0,0), Vector(0,0,0), GetEnemy(), &vToss, &pBlocker);
 
-				CGrenadeSpit *pGrenade = (CGrenadeSpit*)CreateNoSpawn( "grenade_spit", vSpitPos, vec3_angle, this );
+				//CGrenadeSpit *pGrenade = (CGrenadeSpit*)CreateNoSpawn( "grenade_spit", vSpitPos, vec3_angle, this );
+				CGrenadeSpit *pGrenade = (CGrenadeSpit*) CreateEntityByName( "grenade_spit" );
 				//pGrenade->KeyValue( "velocity", vToss );
 				pGrenade->Spawn( );
 				pGrenade->SetThrower( this );
@@ -292,11 +304,95 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 				AttackSound();
 			
 				CPVSFilter filter( vSpitPos );
-				te->SpriteSpray( filter, 0.0,
-					&vSpitPos, &vToss, m_nSquidSpitSprite, 5, 10, 15 );
+				
+				//don't emit sprites
+				
+				//te->SpriteSpray( filter, 0.0,
+				//	&vSpitPos, &vToss, m_nSquidSpitSprite, 5, 10, 15 );
 			}
+			*/
+				Vector vSpitPos;
+				GetAttachment( "Mouth", vSpitPos );
+
+				Vector	vTarget;
+				
+				// If our enemy is looking at us and far enough away, lead him
+				if ( HasCondition( COND_ENEMY_FACING_ME ) && UTIL_DistApprox( GetAbsOrigin(), GetEnemy()->GetAbsOrigin() ) > (40*12) )
+				{
+					UTIL_PredictedPosition( GetEnemy(), 0.5f, &vTarget ); 
+					vTarget.z = GetEnemy()->GetAbsOrigin().z;
+				}
+				else
+				{
+					// Otherwise he can't see us and he won't be able to dodge
+					vTarget = GetEnemy()->BodyTarget( vSpitPos, true );
+				}
+				
+				vTarget[2] += random->RandomFloat( 0.0f, 32.0f );
+				
+				// Try and spit at our target
+				Vector	vecToss;				
+				if ( GetSpitVector( vSpitPos, vTarget, &vecToss ) == false )
+				{
+					// Now try where they were
+					if ( GetSpitVector( vSpitPos, m_vSavePosition, &vecToss ) == false )
+					{
+						// Failing that, just shoot with the old velocity we calculated initially!
+						vecToss = m_vecSaveSpitVelocity;
+					}
+				}
+
+				// Find what our vertical theta is to estimate the time we'll impact the ground
+				Vector vecToTarget = ( vTarget - vSpitPos );
+				VectorNormalize( vecToTarget );
+				float flVelocity = VectorNormalize( vecToss );
+				float flCosTheta = DotProduct( vecToTarget, vecToss );
+				float flTime = (vSpitPos-vTarget).Length2D() / ( flVelocity * flCosTheta );
+
+				// Emit a sound where this is going to hit so that targets get a chance to act correctly
+				CSoundEnt::InsertSound( SOUND_DANGER, vTarget, (15*12), flTime, this );
+
+				// Don't fire again until this volley would have hit the ground (with some lag behind it)
+				SetNextAttack( gpGlobals->curtime + flTime + random->RandomFloat( 0.5f, 2.0f ) );
+
+				for ( int i = 0; i < 6; i++ )
+				{
+					CGrenadeSpit *pGrenade = (CGrenadeSpit*) CreateEntityByName( "grenade_spit" );
+					pGrenade->SetAbsOrigin( vSpitPos );
+					pGrenade->SetAbsAngles( vec3_angle );
+					DispatchSpawn( pGrenade );
+					pGrenade->SetThrower( this );
+					pGrenade->SetOwnerEntity( this );
+										
+					if ( i == 0 )
+					{
+						pGrenade->SetSpitSize( SPIT_LARGE );
+						pGrenade->SetAbsVelocity( vecToss * flVelocity );
+					}
+					else
+					{
+						pGrenade->SetAbsVelocity( ( vecToss + RandomVector( -0.035f, 0.035f ) ) * flVelocity );
+						pGrenade->SetSpitSize( random->RandomInt( SPIT_SMALL, SPIT_MEDIUM ) );
+					}
+
+					// Tumble through the air
+					pGrenade->SetLocalAngularVelocity(
+						QAngle( random->RandomFloat( -250, -500 ),
+								random->RandomFloat( -250, -500 ),
+								random->RandomFloat( -250, -500 ) ) );
+				}
+
+				for ( int i = 0; i < 8; i++ )
+				{
+					DispatchParticleEffect( "blood_impact_yellow_01", vSpitPos + RandomVector( -12.0f, 12.0f ), RandomAngle( 0, 360 ) );
+				}
+				AttackSound();
+				EmitSound( "NPC_Antlion.PoisonShoot" );
+			}
+
 		}
 		break;
+		
 
 		case BSQUID_AE_BITE:
 		{
@@ -319,7 +415,7 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 		}
 
 /*
-		case BSQUID_AE_TAILWHIP:
+		case BSQUID_AE_TAILWHIP: // this function was commented out
 		{
 			CBaseEntity *pHurt = CheckTraceHullAttack( 70, Vector(-16,-16,-16), Vector(16,16,16), sk_bullsquid_dmg_whip.GetFloat(), DMG_SLASH | DMG_ALWAYSGIB );
 			if ( pHurt ) 
@@ -405,6 +501,8 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 
 int CNPC_Bullsquid::RangeAttack1Conditions( float flDot, float flDist )
 {
+	// Code to determine whether or not this NPC can attack ranged commented out until I can sort out the issue with the projectile
+	
 	if ( IsMoving() && flDist >= 512 )
 	{
 		// squid will far too far behind if he stops running to spit at this distance from the enemy.
@@ -435,9 +533,117 @@ int CNPC_Bullsquid::RangeAttack1Conditions( float flDot, float flDist )
 
 		return( COND_CAN_RANGE_ATTACK1 );
 	}
-
+	
 	return( COND_NONE );
 }
+
+//
+//	FIXME: Create this in a better fashion!
+//
+
+Vector VecCheckThrowToleranceSquid( CBaseEntity *pEdict, const Vector &vecSpot1, Vector vecSpot2, float flSpeed, float flTolerance )
+{
+	flSpeed = MAX( 1.0f, flSpeed );
+
+	float flGravity = GetCurrentGravity();
+
+	Vector vecGrenadeVel = (vecSpot2 - vecSpot1);
+
+	// throw at a constant time
+	float time = vecGrenadeVel.Length( ) / flSpeed;
+	vecGrenadeVel = vecGrenadeVel * (1.0 / time);
+
+	// adjust upward toss to compensate for gravity loss
+	vecGrenadeVel.z += flGravity * time * 0.5;
+
+	Vector vecApex = vecSpot1 + (vecSpot2 - vecSpot1) * 0.5;
+	vecApex.z += 0.5 * flGravity * (time * 0.5) * (time * 0.5);
+
+
+	trace_t tr;
+	UTIL_TraceLine( vecSpot1, vecApex, MASK_SOLID, pEdict, COLLISION_GROUP_NONE, &tr );
+	if (tr.fraction != 1.0)
+	{
+		// fail!
+		//if ( g_debug_antlion_worker.GetBool() )
+		//{
+			NDebugOverlay::Line( vecSpot1, vecApex, 255, 0, 0, true, 5.0 );
+		//}
+
+		return vec3_origin;
+	}
+
+	//if ( g_debug_antlion_worker.GetBool() )
+	//{
+		NDebugOverlay::Line( vecSpot1, vecApex, 0, 255, 0, true, 5.0 );
+	//}
+
+	UTIL_TraceLine( vecApex, vecSpot2, MASK_SOLID_BRUSHONLY, pEdict, COLLISION_GROUP_NONE, &tr );
+	if ( tr.fraction != 1.0 )
+	{
+		bool bFail = true;
+
+		// Didn't make it all the way there, but check if we're within our tolerance range
+		if ( flTolerance > 0.0f )
+		{
+			float flNearness = ( tr.endpos - vecSpot2 ).LengthSqr();
+			if ( flNearness < Square( flTolerance ) )
+			{
+				//if ( g_debug_antlion_worker.GetBool() )
+				//{
+					NDebugOverlay::Sphere( tr.endpos, vec3_angle, flTolerance, 0, 255, 0, 0, true, 5.0 );
+				//}
+
+				bFail = false;
+			}
+		}
+		
+		if ( bFail )
+		{
+				NDebugOverlay::Line( vecApex, vecSpot2, 255, 0, 0, true, 5.0 );
+				NDebugOverlay::Sphere( tr.endpos, vec3_angle, flTolerance, 255, 0, 0, 0, true, 5.0 );
+			
+			return vec3_origin;
+		}
+	}
+
+	return vecGrenadeVel;
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: Get a toss direction that will properly lob spit to hit a target
+// Input  : &vecStartPos - Where the spit will start from
+//			&vecTarget - Where the spit is meant to land
+//			*vecOut - The resulting vector to lob the spit
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CNPC_Bullsquid::GetSpitVector( const Vector &vecStartPos, const Vector &vecTarget, Vector *vecOut )
+{
+	// Try the most direct route
+	Vector vecToss = VecCheckThrowToleranceSquid( this, vecStartPos, vecTarget, sk_bullsquid_spit_speed.GetFloat(), (10.0f*12.0f) );
+
+	// If this failed then try a little faster (flattens the arc)
+	if ( vecToss == vec3_origin )
+	{
+		vecToss = VecCheckThrowToleranceSquid( this, vecStartPos, vecTarget, sk_bullsquid_spit_speed.GetFloat() * 1.5f, (10.0f*12.0f) );
+		if ( vecToss == vec3_origin )
+			return false;
+	}
+
+	// Save out the result
+	if ( vecOut )
+	{
+		*vecOut = vecToss;
+	}
+
+	return true;
+
+}
+
+
+
+
 
 //=========================================================
 // MeleeAttack2Conditions - bullsquid is a big guy, so has a longer
