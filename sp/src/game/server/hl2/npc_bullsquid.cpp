@@ -42,8 +42,9 @@
 ConVar sk_bullsquid_health( "sk_bullsquid_health", "100" );
 ConVar sk_bullsquid_dmg_bite( "sk_bullsquid_dmg_bite", "15" );
 ConVar sk_bullsquid_dmg_whip( "sk_bullsquid_dmg_whip", "25" );
-ConVar sk_bullsquid_spit_speed( "sk_bullsquid_spit_speed", "100", FCVAR_NONE, "Speed at which an antlion spit grenade travels." );
-
+ConVar sk_bullsquid_spit_speed( "sk_bullsquid_spit_speed", "10");
+ConVar sk_bullsquid_spit_min_wait( "sk_bullsquid_spit_min_wait", "2");
+ConVar sk_bullsquid_spit_max_wait( "sk_bullsquid_spit_max_wait", "5");
 //=========================================================
 // monster-specific schedule types
 //=========================================================
@@ -312,8 +313,10 @@ void CNPC_Bullsquid::HandleAnimEvent( animevent_t *pEvent )
 			}
 			*/
 				Vector vSpitPos;
-				GetAttachment( "Mouth", vSpitPos );
-
+				//GetAttachment( "Mouth", vSpitPos );
+				
+				vSpitPos = GetAbsOrigin() + Vector(0, 0, 64); // The Bullsquid model does not have an origin!
+				
 				Vector	vTarget;
 				
 				// If our enemy is looking at us and far enough away, lead him
@@ -523,12 +526,12 @@ int CNPC_Bullsquid::RangeAttack1Conditions( float flDot, float flDist )
 		if ( IsMoving() )
 		{
 			// don't spit again for a long time, resume chasing enemy.
-			m_flNextSpitTime = gpGlobals->curtime + 5;
+			m_flNextSpitTime = gpGlobals->curtime + sk_bullsquid_spit_max_wait.GetFloat();
 		}
 		else
 		{
 			// not moving, so spit again pretty soon.
-			m_flNextSpitTime = gpGlobals->curtime + 0.5;
+			m_flNextSpitTime = gpGlobals->curtime + sk_bullsquid_spit_min_wait.GetFloat(); // was 0.5, increased to 2 to prevent spamming behavior
 		}
 
 		return( COND_CAN_RANGE_ATTACK1 );
@@ -567,7 +570,7 @@ Vector VecCheckThrowToleranceSquid( CBaseEntity *pEdict, const Vector &vecSpot1,
 		// fail!
 		//if ( g_debug_antlion_worker.GetBool() )
 		//{
-			NDebugOverlay::Line( vecSpot1, vecApex, 255, 0, 0, true, 5.0 );
+		//	NDebugOverlay::Line( vecSpot1, vecApex, 255, 0, 0, true, 5.0 );
 		//}
 
 		return vec3_origin;
@@ -575,7 +578,7 @@ Vector VecCheckThrowToleranceSquid( CBaseEntity *pEdict, const Vector &vecSpot1,
 
 	//if ( g_debug_antlion_worker.GetBool() )
 	//{
-		NDebugOverlay::Line( vecSpot1, vecApex, 0, 255, 0, true, 5.0 );
+		//NDebugOverlay::Line( vecSpot1, vecApex, 0, 255, 0, true, 5.0 );
 	//}
 
 	UTIL_TraceLine( vecApex, vecSpot2, MASK_SOLID_BRUSHONLY, pEdict, COLLISION_GROUP_NONE, &tr );
@@ -591,7 +594,7 @@ Vector VecCheckThrowToleranceSquid( CBaseEntity *pEdict, const Vector &vecSpot1,
 			{
 				//if ( g_debug_antlion_worker.GetBool() )
 				//{
-					NDebugOverlay::Sphere( tr.endpos, vec3_angle, flTolerance, 0, 255, 0, 0, true, 5.0 );
+				//	NDebugOverlay::Sphere( tr.endpos, vec3_angle, flTolerance, 0, 255, 0, 0, true, 5.0 );
 				//}
 
 				bFail = false;
@@ -600,8 +603,8 @@ Vector VecCheckThrowToleranceSquid( CBaseEntity *pEdict, const Vector &vecSpot1,
 		
 		if ( bFail )
 		{
-				NDebugOverlay::Line( vecApex, vecSpot2, 255, 0, 0, true, 5.0 );
-				NDebugOverlay::Sphere( tr.endpos, vec3_angle, flTolerance, 255, 0, 0, 0, true, 5.0 );
+				//NDebugOverlay::Line( vecApex, vecSpot2, 255, 0, 0, true, 5.0 );
+				//NDebugOverlay::Sphere( tr.endpos, vec3_angle, flTolerance, 255, 0, 0, 0, true, 5.0 );
 			
 			return vec3_origin;
 		}
@@ -621,12 +624,12 @@ Vector VecCheckThrowToleranceSquid( CBaseEntity *pEdict, const Vector &vecSpot1,
 bool CNPC_Bullsquid::GetSpitVector( const Vector &vecStartPos, const Vector &vecTarget, Vector *vecOut )
 {
 	// Try the most direct route
-	Vector vecToss = VecCheckThrowToleranceSquid( this, vecStartPos, vecTarget, sk_bullsquid_spit_speed.GetFloat(), (10.0f*12.0f) );
+	Vector vecToss = VecCheckThrowToleranceSquid( this, vecStartPos, vecTarget, 1024.0f, (10.0f*12.0f) );
 
 	// If this failed then try a little faster (flattens the arc)
 	if ( vecToss == vec3_origin )
 	{
-		vecToss = VecCheckThrowToleranceSquid( this, vecStartPos, vecTarget, sk_bullsquid_spit_speed.GetFloat() * 1.5f, (10.0f*12.0f) );
+		vecToss = VecCheckThrowToleranceSquid( this, vecStartPos, vecTarget, 1024.0f * 1.5f, (10.0f*12.0f) );
 		if ( vecToss == vec3_origin )
 			return false;
 	}
@@ -651,10 +654,11 @@ bool CNPC_Bullsquid::GetSpitVector( const Vector &vecStartPos, const Vector &vec
 //=========================================================
 int CNPC_Bullsquid::MeleeAttack1Conditions( float flDot, float flDist )
 {
-	if ( GetEnemy()->m_iHealth <= sk_bullsquid_dmg_whip.GetFloat() && flDist <= 85 && flDot >= 0.7 )
-	{
-		return ( COND_CAN_MELEE_ATTACK1 );
-	}
+	// Animation is broken - DO NOT tail whip!
+	//if ( GetEnemy()->m_iHealth <= sk_bullsquid_dmg_whip.GetFloat() && flDist <= 85 && flDot >= 0.7 )
+	//{
+	//	return ( COND_CAN_MELEE_ATTACK1 );
+	//}
 	
 	return( COND_NONE );
 }
@@ -667,7 +671,9 @@ int CNPC_Bullsquid::MeleeAttack1Conditions( float flDot, float flDist )
 //=========================================================
 int CNPC_Bullsquid::MeleeAttack2Conditions( float flDot, float flDist )
 {
-	if ( flDist <= 85 && flDot >= 0.7 && !HasCondition( COND_CAN_MELEE_ATTACK1 ) )		// The player & bullsquid can be as much as their bboxes 
+	if ( flDist <= 85 && flDot >= 0.7 
+	//&& !HasCondition( COND_CAN_MELEE_ATTACK1 ) 
+	)		// The player & bullsquid can be as much as their bboxes 
 		 return ( COND_CAN_MELEE_ATTACK2 );
 	
 	return( COND_NONE );
@@ -697,14 +703,14 @@ void CNPC_Bullsquid::RemoveIgnoredConditions( void )
 	if ( GetEnemy() != NULL )
 	{
 		// ( Unless after a tasty headcrab, yumm ^_^ )
-		if ( FClassnameIs( GetEnemy(), "monster_headcrab" ) )
+		if ( FClassnameIs( GetEnemy(), "npc_headcrab" ) )
 			 ClearCondition( COND_SMELL );
 	}
 }
 
 Disposition_t CNPC_Bullsquid::IRelationType( CBaseEntity *pTarget )
 {
-	if ( gpGlobals->curtime - m_flLastHurtTime < 5 && FClassnameIs( pTarget, "monster_headcrab" ) )
+	if ( gpGlobals->curtime - m_flLastHurtTime < 5 && FClassnameIs( pTarget, "npc_headcrab" ) )
 	{
 		// if squid has been hurt in the last 5 seconds, and is getting relationship for a headcrab, 
 		// tell squid to disregard crab. 
@@ -749,7 +755,7 @@ int CNPC_Bullsquid::OnTakeDamage_Alive( const CTakeDamageInfo &inputInfo )
 	}
 #endif
 
-	if ( !FClassnameIs( inputInfo.GetAttacker(), "monster_headcrab" ) )
+	if ( !FClassnameIs( inputInfo.GetAttacker(), "npc_headcrab" ) )
 	{
 		// don't forget about headcrabs if it was a headcrab that hurt the squid.
 		m_flLastHurtTime = gpGlobals->curtime;
@@ -900,7 +906,7 @@ int CNPC_Bullsquid::SelectSchedule( void )
 
 			if ( HasCondition( COND_NEW_ENEMY ) )
 			{
-				if ( m_fCanThreatDisplay && IRelationType( GetEnemy() ) == D_HT && FClassnameIs( GetEnemy(), "monster_headcrab" ) )
+				if ( m_fCanThreatDisplay && IRelationType( GetEnemy() ) == D_HT && FClassnameIs( GetEnemy(), "npc_headcrab" ) )
 				{
 					// this means squid sees a headcrab!
 					m_fCanThreatDisplay = FALSE;// only do the headcrab dance once per lifetime.
@@ -933,10 +939,11 @@ int CNPC_Bullsquid::SelectSchedule( void )
 				return SCHED_RANGE_ATTACK1;
 			}
 
-			if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
-			{
-				return SCHED_MELEE_ATTACK1;
-			}
+			// DO NOT tail whip!
+			//if ( HasCondition( COND_CAN_MELEE_ATTACK1 ) )
+			//{
+			//	return SCHED_MELEE_ATTACK1;
+			//}
 
 			if ( HasCondition( COND_CAN_MELEE_ATTACK2 ) )
 			{
