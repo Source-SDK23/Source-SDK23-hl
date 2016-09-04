@@ -221,15 +221,24 @@ void C_EnvProjectedTexture::UpdateLight( bool bForceUpdate )
 
 	g_pClientShadowMgr->SetFlashlightLightWorld( m_LightHandle, m_bLightWorld );
 
-	if ( bForceUpdate == false )
-	{
+	
+	// The conditional to check if bForceUpdate == false is commented out based on a guide on VDC
+	// https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes
+	// This was done so that projected textures may be parented.
+	// Change made by Derek Dik on 9/4/2016
+	
+	//if ( bForceUpdate == false )
+	//{
 		g_pClientShadowMgr->UpdateProjectedTexture( m_LightHandle, true );
-	}
+	//}
 }
 
 void C_EnvProjectedTexture::Simulate( void )
 {
-	UpdateLight( false );
+	// According to VDC, we want to update the light based on when there is a movement parent 
+	//https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes
+	// Change made by Derek Dik on 9/4/2016
+	UpdateLight( GetMoveParent() != NULL );
 
 	BaseClass::Simulate();
 }
