@@ -35,6 +35,7 @@
 #include "ai_basenpc.h"
 #include "engine/IEngineSound.h"
 #include "basehlcombatweapon_shared.h"
+#include "ai_squadslot.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -96,6 +97,9 @@ public:
 	bool		m_bHasWeapon;
 
 	DEFINE_CUSTOM_AI;
+
+private:
+	bool		HasRangedWeapon();
 };
 
 
@@ -323,6 +327,110 @@ int CNPC_ShadowWalker::SelectAlertSchedule()
 
 	// valid route. Get moving
 	return SCHED_ALERT_WALK;
+}
+
+//-----------------------------------------------------------------------------
+// Combat schedule selection
+//-----------------------------------------------------------------------------
+int CNPC_ShadowWalker::SelectCombatSchedule()
+{
+	// Check flinch first
+	int nSched = SelectFlinchSchedule();
+	if (nSched != SCHED_NONE)
+		return nSched;
+
+	// Check enemy death
+	if (HasCondition(COND_ENEMY_DEAD))
+	{
+		// clear the current (dead) enemy and try to find another.
+		SetEnemy(NULL);
+
+		if (ChooseEnemy())
+		{
+			ClearCondition(COND_ENEMY_DEAD);
+			return SelectSchedule();
+		}
+
+		SetState(NPC_STATE_ALERT);
+		return SelectSchedule();
+	}
+
+	// If I'm scared of this enemy and he's looking at me, run away
+	if (IRelationType(GetEnemy()) == D_FR)
+	{
+		if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME))
+		{
+			// TODO: Check if silent
+			FearSound();
+			return SCHED_RUN_FROM_ENEMY;
+		}
+	}
+
+	// Reloading conditions are necessary just in case for some reason somebody gives the Shadow Walker a gun
+	if (HasCondition(COND_LOW_PRIMARY_AMMO) || HasCondition(COND_NO_PRIMARY_AMMO))
+	{
+		return SCHED_HIDE_AND_RELOAD;
+	}
+
+	// Can we see the enemy?
+	if (!HasCondition(COND_SEE_ENEMY))
+	{
+		// chase!
+		return SCHED_CHASE_ENEMY;
+	}
+
+	if (HasCondition(COND_TOO_CLOSE_TO_ATTACK))
+		return SCHED_BACK_AWAY_FROM_ENEMY;
+
+
+	// we can see the enemy
+	if (HasCondition(COND_CAN_MELEE_ATTACK1))
+		return SCHED_MELEE_ATTACK1;
+
+	if (HasCondition(COND_CAN_MELEE_ATTACK2))
+		return SCHED_MELEE_ATTACK2;
+
+	if (HasRangedWeapon() && GetShotRegulator()->IsInRestInterval())
+	{
+		if (HasCondition(COND_CAN_RANGE_ATTACK1))
+			return SCHED_COMBAT_FACE;
+	}
+
+	if (HasRangedWeapon() && HasCondition(COND_CAN_RANGE_ATTACK1))
+	{
+		if (OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
+			return SCHED_RANGE_ATTACK1;
+		return SCHED_RUN_FROM_ENEMY;
+	}
+
+	if (HasRangedWeapon() && HasCondition(COND_CAN_RANGE_ATTACK2))
+		return SCHED_RANGE_ATTACK2;
+
+
+	if (HasCondition(COND_NOT_FACING_ATTACK))
+		return SCHED_COMBAT_FACE;
+
+	if (!HasCondition(COND_CAN_RANGE_ATTACK1) && !HasCondition(COND_CAN_MELEE_ATTACK1))
+	{
+		// if we can see enemy but can't use either attack type, we must need to get closer to enemy
+		if (HasRangedWeapon())
+			return SCHED_MOVE_TO_WEAPON_RANGE;
+
+		return SCHED_CHASE_ENEMY;
+	}
+
+	DevWarning(2, "No suitable combat schedule!\n");
+	return SCHED_FAIL;
+}
+
+bool CNPC_ShadowWalker::HasRangedWeapon()
+{
+	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
+
+	if (pWeapon)
+		return !(FClassnameIs(pWeapon, "weapon_crowbar") || FClassnameIs(pWeapon, "weapon_stunstick"));
+
+	return false;
 }
 
 //-----------------------------------------------------------------------------
