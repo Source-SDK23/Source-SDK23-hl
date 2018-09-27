@@ -83,7 +83,9 @@ public:
 	int				SelectFailSchedule(int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode);
 	int 			SelectScheduleRetrieveItem();
 	int 			SelectSchedule();
-
+	int				SelectIdleSchedule();
+	int				SelectAlertSchedule();
+	int				SelectCombatSchedule();
 	DECLARE_DATADESC();
 
 	// This is a dummy field. In order to provide save/restore
@@ -94,7 +96,6 @@ public:
 	bool		m_bHasWeapon;
 
 	DEFINE_CUSTOM_AI;
-
 };
 
 
@@ -230,36 +231,99 @@ int CNPC_ShadowWalker::SelectScheduleRetrieveItem()
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectSchedule()
 {
+	int schedule;
 	// Top priority - If there is a weapon available, grab it!
-	int schedule = SelectScheduleRetrieveItem();
-	if (schedule != SCHED_NONE)
-		return schedule;
+	//schedule = SelectScheduleRetrieveItem();
+	//if (schedule != SCHED_NONE)
+	//	return schedule;
 
 	// Can I see the enemy?
-	if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME))
+	//if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME))
+	//{
+	//	// Enemy can't see me
+	//	if (!HasCondition(COND_HAVE_ENEMY_LOS)) {
+	//		return SCHED_CHASE_ENEMY;
+	//	}
+	//
+	//	return SCHED_RUN_FROM_ENEMY;
+	//}
+	switch (m_NPCState)
 	{
-		// Enemy can't see me
-		if (!HasCondition(COND_HAVE_ENEMY_LOS)) {
-			return SCHED_CHASE_ENEMY;
-		}
+	case NPC_STATE_IDLE:
+		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
+		return SelectIdleSchedule();
 
-		return SCHED_RUN_FROM_ENEMY;
+	case NPC_STATE_ALERT:
+		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
+		return SelectAlertSchedule();
+
+	//case NPC_STATE_COMBAT:
+		//return SelectCombatSchedule();
+
+	default:
+		return BaseClass::SelectSchedule();
 	}
-
-	schedule = BaseClass::SelectSchedule();
-	if (schedule != SCHED_NONE)
-		return schedule;
-
-	// I musn't run away! I musn't run away!
-	// If BaseNPC chooses to run from enemy, take cover instead
-	if (schedule == SCHED_RUN_FROM_ENEMY &&!HasCondition(COND_NO_WEAPON)) {
-		return SCHED_TAKE_COVER_FROM_ENEMY;
-	}
-
-	return SCHED_IDLE_STAND;
 }
 
+//-----------------------------------------------------------------------------
+// Idle schedule selection
+//-----------------------------------------------------------------------------
+int CNPC_ShadowWalker::SelectIdleSchedule()
+{
+	int nSched = SelectFlinchSchedule();
+	if (nSched != SCHED_NONE)
+		return nSched;
 
+	if (HasCondition(COND_HEAR_DANGER) ||
+		HasCondition(COND_HEAR_COMBAT) ||
+		HasCondition(COND_HEAR_WORLD) ||
+		HasCondition(COND_HEAR_BULLET_IMPACT) ||
+		HasCondition(COND_HEAR_PLAYER))
+	{
+		// Investigate sound source
+		return SCHED_INVESTIGATE_SOUND;
+	}
+
+	// no valid route! Wander instead
+	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE)
+		return SCHED_IDLE_WANDER;
+
+	// valid route. Get moving
+	return SCHED_IDLE_WALK;
+}
+
+//-----------------------------------------------------------------------------
+// Alert schedule selection
+// Copied from baseNPC
+//-----------------------------------------------------------------------------
+int CNPC_ShadowWalker::SelectAlertSchedule()
+{
+	// Per default base NPC, check flinch schedule first
+	int nSched = SelectFlinchSchedule();
+	if (nSched != SCHED_NONE)
+		return nSched;
+
+	// Scan around for new enemies
+	if (HasCondition(COND_ENEMY_DEAD) && SelectWeightedSequence(ACT_VICTORY_DANCE) != ACTIVITY_NOT_AVAILABLE)
+		return SCHED_ALERT_SCAN;
+
+	if (HasCondition(COND_HEAR_DANGER) ||
+		HasCondition(COND_HEAR_PLAYER) ||
+		HasCondition(COND_HEAR_WORLD) ||
+		HasCondition(COND_HEAR_BULLET_IMPACT) ||
+		HasCondition(COND_HEAR_COMBAT))
+	{
+		// Investigate sound source
+		return SCHED_INVESTIGATE_SOUND;
+	}
+
+	// no valid route! Wander instead
+	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE)
+		return SCHED_IDLE_WANDER;
+
+	// valid route. Get moving
+	return SCHED_ALERT_WALK;
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 
