@@ -356,9 +356,10 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 	}
 
 	// If I'm scared of this enemy and he's looking at me, run away
-	if (IRelationType(GetEnemy()) == D_FR)
+	// If in a squad, all but one Shadow walker must be afraid of the player
+	if (IRelationType(GetEnemy()) == D_FR || !OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1))
 	{
-		if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME))
+		if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME)  && HasCondition(COND_HAVE_ENEMY_LOS))
 		{
 			// TODO: Check if silent
 			FearSound();
@@ -384,11 +385,17 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 
 
 	// we can see the enemy
-	if (HasCondition(COND_CAN_MELEE_ATTACK1))
-		return SCHED_MELEE_ATTACK1;
+	if (HasCondition(COND_CAN_MELEE_ATTACK1)) {
+		//if (OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
+			return SCHED_MELEE_ATTACK1;
+		//return SCHED_RUN_FROM_ENEMY;
+	}
 
-	if (HasCondition(COND_CAN_MELEE_ATTACK2))
-		return SCHED_MELEE_ATTACK2;
+	if (HasCondition(COND_CAN_MELEE_ATTACK2)) {
+		//if (OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
+			return SCHED_MELEE_ATTACK2;
+		//return SCHED_RUN_FROM_ENEMY;
+	}
 
 	if (HasRangedWeapon() && GetShotRegulator()->IsInRestInterval())
 	{
