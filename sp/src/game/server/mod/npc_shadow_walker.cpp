@@ -204,6 +204,12 @@ int CNPC_ShadowWalker::SelectFailSchedule(int failedSchedule, int failedTask, AI
 	case SCHED_TAKE_COVER_FROM_ENEMY:
 		// I can't take cover, so I need to run away!
 		return SCHED_RUN_FROM_ENEMY;
+	case SCHED_CHASE_ENEMY:
+		// I can't run away, so I will just run randomly!
+		return SCHED_CHASE_ENEMY_FAILED;
+	case SCHED_RUN_FROM_ENEMY:
+		// I can't run away, so I will just run randomly!
+		return SCHED_RUN_RANDOM;
 	}
 
 	return BaseClass::SelectFailSchedule(failedSchedule, failedTask, taskFailCode);
@@ -235,22 +241,6 @@ int CNPC_ShadowWalker::SelectScheduleRetrieveItem()
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectSchedule()
 {
-	int schedule;
-	// Top priority - If there is a weapon available, grab it!
-	//schedule = SelectScheduleRetrieveItem();
-	//if (schedule != SCHED_NONE)
-	//	return schedule;
-
-	// Can I see the enemy?
-	//if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME))
-	//{
-	//	// Enemy can't see me
-	//	if (!HasCondition(COND_HAVE_ENEMY_LOS)) {
-	//		return SCHED_CHASE_ENEMY;
-	//	}
-	//
-	//	return SCHED_RUN_FROM_ENEMY;
-	//}
 	switch (m_NPCState)
 	{
 	case NPC_STATE_IDLE:
@@ -261,8 +251,8 @@ int CNPC_ShadowWalker::SelectSchedule()
 		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
 		return SelectAlertSchedule();
 
-	//case NPC_STATE_COMBAT:
-		//return SelectCombatSchedule();
+	case NPC_STATE_COMBAT:
+		return SelectCombatSchedule();
 
 	default:
 		return BaseClass::SelectSchedule();
@@ -357,7 +347,7 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 
 	// If I'm scared of this enemy and he's looking at me, run away
 	// If in a squad, all but one Shadow walker must be afraid of the player
-	if (IRelationType(GetEnemy()) == D_FR || !OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1))
+	if (IRelationType(GetEnemy()) == D_FR || !OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
 	{
 		if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME)  && HasCondition(COND_HAVE_ENEMY_LOS))
 		{
