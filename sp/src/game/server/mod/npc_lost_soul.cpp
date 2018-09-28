@@ -115,6 +115,9 @@ public:
 	void			PlayFlySound(void);
 	void			StartEye(void);
 
+
+	void			CheckCollisions(float flInterval);
+
 	void			Slice(CBaseEntity *pHitEntity, float flInterval, trace_t &tr);
 	//void			Bump(CBaseEntity *pHitEntity, float flInterval, trace_t &tr);
 	//void			Splash(const Vector &vecSplashPos);
@@ -122,6 +125,19 @@ public:
 	virtual int				OnTakeDamage_Alive(const CTakeDamageInfo &info);
 
 	void Ignite(float flFlameLifetime, bool bNPCOnly, float flSize, bool bCalledByLevelDesigner) { return; }
+
+	// INPCInteractive Functions
+	virtual bool	CanInteractWith(CAI_BaseNPC *pUser) { return false; } // Disabled for now (sjb)
+	virtual	bool	HasBeenInteractedWith() { return false; }
+	virtual void	NotifyInteraction(CAI_BaseNPC *pUser){}
+
+	virtual void	InputPowerdown(inputdata_t &inputdata)
+	{
+		m_iHealth = 0;
+	}
+
+	void			MoveToTarget(float flInterval, const Vector &MoveTarget);
+
 
 	DECLARE_DATADESC();
 
@@ -368,6 +384,141 @@ void CNPC_LostSoul::Slice(CBaseEntity *pHitEntity, float flInterval, trace_t &tr
 	// StopBurst(true);
 }
 
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CNPC_LostSoul::MoveToTarget(float flInterval, const Vector &vMoveTarget)
+{
+	if (flInterval <= 0)
+	{
+		return;
+	}
+
+	// -----------------------------------------
+	// Don't steer if engine's have stalled
+	// -----------------------------------------
+	if (m_iHealth <= 0)
+		return;
+
+	if (GetEnemy() != NULL)
+	{
+		TurnHeadToTarget(flInterval, GetEnemy()->EyePosition());
+	}
+	else
+	{
+		TurnHeadToTarget(flInterval, vMoveTarget);
+	}
+
+	// -------------------------------------
+	// Move towards our target
+	// -------------------------------------
+	float	myAccel;
+	float	myZAccel = 300.0f;
+	float	myDecay = 0.3f;
+
+	Vector targetDir;
+	float flDist;
+
+
+		Vector vecCurrentDir = GetCurrentVelocity();
+		VectorNormalize(vecCurrentDir);
+
+		targetDir = vMoveTarget - GetAbsOrigin();
+		flDist = VectorNormalize(targetDir);
+
+		float flDot = DotProduct(targetDir, vecCurrentDir);
+
+		// Otherwise we should steer towards our goal
+		if (flDot > 0.25)
+		{
+			// If my target is in front of me, my flight model is a bit more accurate.
+			myAccel = 300;
+		}
+		else
+		{
+			// Have a harder time correcting my course if I'm currently flying away from my target.
+			myAccel = 200;
+		}
+
+	// Clamp lateral acceleration
+	if (myAccel > (flDist / flInterval))
+	{
+		myAccel = flDist / flInterval;
+	}
+
+	/*
+	// Boost vertical movement
+	if ( targetDir.z > 0 )
+	{
+	// Z acceleration is faster when we thrust upwards.
+	// This is to help keep manhacks out of water.
+	myZAccel *= 5.0;
+	}
+	*/
+
+	// Clamp vertical movement
+	if (myZAccel > flDist / flInterval)
+	{
+		myZAccel = flDist / flInterval;
+	}
+
+	// Scale by our engine force
+	//myAccel *= m_fEnginePowerScale;
+	//myZAccel *= m_fEnginePowerScale;
+
+	MoveInDirection(flInterval, targetDir, myAccel, myZAccel, myDecay);
+
+	// calc relative banking targets
+	Vector forward, right;
+	GetVectors(&forward, &right, NULL);
+	//m_vTargetBanking.x = 40 * DotProduct(forward, targetDir);
+	//m_vTargetBanking.z = 40 * DotProduct(right, targetDir);
+	//m_vTargetBanking.y = 0.0;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose:
+// Input  :
+// Output :
+//-----------------------------------------------------------------------------
+void CNPC_LostSoul::CheckCollisions(float flInterval)
+{
+	// Trace forward to see if I hit anything. But trace forward along the
+	// owner's view direction if you're being carried.
+	Vector vecTraceDir, vecCheckPos;
+	VPhysicsGetObject()->GetVelocity(&vecTraceDir, NULL);
+	vecTraceDir *= flInterval;
+
+	VectorAdd(GetAbsOrigin(), vecTraceDir, vecCheckPos);
+
+	trace_t			tr;
+	CBaseEntity*	pHitEntity = NULL;
+
+	AI_TraceHull(GetAbsOrigin(),
+		vecCheckPos,
+		GetHullMins(),
+		GetHullMaxs(),
+		MoveCollisionMask(),
+		this,
+		COLLISION_GROUP_NONE,
+		&tr);
+
+	if ((tr.fraction != 1.0 || tr.startsolid) && tr.m_pEnt)
+	{
+		PhysicsMarkEntitiesAsTouching(tr.m_pEnt, tr);
+		pHitEntity = tr.m_pEnt;
+
+		if (pHitEntity != NULL &&
+			pHitEntity->m_takedamage == DAMAGE_YES &&
+			pHitEntity->Classify() != CLASS_MANHACK)
+		{
+			// Slice this thing
+			Slice(pHitEntity, flInterval, tr);
+		}
+	}
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 
