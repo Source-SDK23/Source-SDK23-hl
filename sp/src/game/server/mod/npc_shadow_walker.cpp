@@ -96,6 +96,16 @@ public:
 	virtual int				SelectCombatSchedule();
 	virtual bool			CanPickkUpWeapons() { return true;  }
 
+	// Sounds
+	virtual void		PlaySound(string_t soundname);
+	virtual void		DeathSound(const CTakeDamageInfo &info) { PlaySound(m_iszDeathSound); }
+	virtual void		AlertSound(void) { PlaySound(m_iszAlertSound); };
+	virtual void		IdleSound(void) { PlaySound(m_iszIdleSound); };
+	virtual void		PainSound(const CTakeDamageInfo &info) { PlaySound(m_iszPainSound); };
+	virtual void		FearSound(void) { PlaySound(m_iszFearSound); };
+	virtual void		LostEnemySound(void) { PlaySound(m_iszLostEnemySound); };
+	virtual void		FoundEnemySound(void) { PlaySound(m_iszFoundEnemySound); };
+
 	// Citizen methods
 	Activity		NPC_TranslateActivity(Activity eNewActivity);
 
@@ -111,7 +121,13 @@ public:
 	// for the code to operate on. Delete this field when
 	// you are ready to do your own save/restore for this
 	// character.
-	bool		m_bHasWeapon;
+	string_t m_iszFearSound;			// Path/filename of WAV file to play.
+	string_t m_iszDeathSound;			// Path/filename of WAV file to play.
+	string_t m_iszIdleSound;			// Path/filename of WAV file to play.
+	string_t m_iszPainSound;			// Path/filename of WAV file to play.
+	string_t m_iszAlertSound;			// Path/filename of WAV file to play.
+	string_t m_iszLostEnemySound;		// Path/filename of WAV file to play.
+	string_t m_iszFoundEnemySound;			// Path/filename of WAV file to play.
 
 	DEFINE_CUSTOM_AI;
 
@@ -128,9 +144,13 @@ IMPLEMENT_CUSTOM_AI( npc_citizen,CNPC_ShadowWalker );
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_ShadowWalker )
-
-	DEFINE_FIELD(m_bHasWeapon, FIELD_BOOLEAN),
-
+	DEFINE_KEYFIELD(m_iszFearSound, FIELD_SOUNDNAME, "FearSound"),
+	DEFINE_KEYFIELD(m_iszDeathSound, FIELD_SOUNDNAME, "DeathSound"),
+	DEFINE_KEYFIELD(m_iszIdleSound, FIELD_SOUNDNAME, "IdleSound"),
+	DEFINE_KEYFIELD(m_iszPainSound, FIELD_SOUNDNAME, "PainSound"),
+	DEFINE_KEYFIELD(m_iszAlertSound, FIELD_SOUNDNAME, "AlertSound"),
+	DEFINE_KEYFIELD(m_iszLostEnemySound, FIELD_SOUNDNAME, "LostEnemySound"),
+	DEFINE_KEYFIELD(m_iszFoundEnemySound, FIELD_SOUNDNAME, "FoundEnemySound"),
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -163,7 +183,17 @@ void CNPC_ShadowWalker::Precache( void )
 		SetModelName(MAKE_STRING("models/monster/subject.mdl"));
 	}
 
+	if (!m_iszFearSound) {
+		m_iszFearSound = MAKE_STRING("NPC_Shadow_Walker.Fear");
+	}
+
+	if (!m_iszDeathSound) {
+		m_iszDeathSound = MAKE_STRING("NPC_Shadow_Walker.Die");
+	}
+
 	PrecacheModel(STRING(GetModelName()));
+	PrecacheScriptSound(STRING(m_iszFearSound));
+	PrecacheScriptSound(STRING(m_iszDeathSound));
 	BaseClass::Precache();
 }
 
@@ -205,8 +235,6 @@ void CNPC_ShadowWalker::Spawn( void )
 
 	CapabilitiesAdd(bits_CAP_MOVE_GROUND);
 	SetMoveType(MOVETYPE_STEP);
-
-
 
 	NPCInit();
 }
@@ -662,6 +690,15 @@ Activity CNPC_ShadowWalker::NPC_TranslateActivity(Activity activity)
 //
 //	return pHurt;
 //}
+
+//-----------------------------------------------------------------------------
+// Purpose: Play NPC soundscript
+//-----------------------------------------------------------------------------
+void CNPC_ShadowWalker::PlaySound(string_t soundname)
+{
+	CPASAttenuationFilter filter2(this, STRING(soundname));
+	EmitSound(filter2, entindex(), STRING(soundname));
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 
