@@ -36,6 +36,8 @@
 #include "engine/IEngineSound.h"
 #include "basehlcombatweapon_shared.h"
 #include "ai_squadslot.h"
+//#include "npc_BaseZombie.h"
+//#include "vehicle_base.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -70,6 +72,11 @@
 //	COND_MYCUSTOMCONDITION = LAST_SHARED_CONDITION,
 //};
 
+//=========================================================
+// Convars
+//=========================================================
+
+ConVar	sk_shadow_walker_dmg_innate_melee("sk_zombie_dmg_one_slash", "0");
 
 //=========================================================
 //=========================================================
@@ -81,12 +88,22 @@ public:
 	void	Precache( void );
 	void	Spawn( void );
 	Class_T Classify( void );
-	int				SelectFailSchedule(int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode);
-	int 			SelectScheduleRetrieveItem();
-	int 			SelectSchedule();
-	int				SelectIdleSchedule();
-	int				SelectAlertSchedule();
-	int				SelectCombatSchedule();
+	virtual int				SelectFailSchedule(int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode);
+	virtual int 			SelectScheduleRetrieveItem();
+	virtual int 			SelectSchedule();
+	virtual int				SelectIdleSchedule();
+	virtual int				SelectAlertSchedule();
+	virtual int				SelectCombatSchedule();
+	virtual bool			CanPickkUpWeapons() { return true;  }
+
+	// Citizen methods
+	Activity		NPC_TranslateActivity(Activity eNewActivity);
+
+	// Zombie methods
+	//void HandleAnimEvent(animevent_t *pEvent);
+	//virtual CBaseEntity *ClawAttack(float flDist, int iDamage, QAngle &qaViewPunch, Vector &vecVelocityPunch, int BloodOrigin);
+	//virtual float GetClawAttackRange() const { return ZOMBIE_MELEE_REACH; }
+	
 	DECLARE_DATADESC();
 
 	// This is a dummy field. In order to provide save/restore
@@ -141,8 +158,12 @@ void CNPC_ShadowWalker::InitCustomSchedules(void)
 //-----------------------------------------------------------------------------
 void CNPC_ShadowWalker::Precache( void )
 {
-	PrecacheModel( "models/monster/subject.mdl" ); // Replace this with setting from Hammer
+	if (!GetModelName())
+	{
+		SetModelName(MAKE_STRING("models/monster/subject.mdl"));
+	}
 
+	PrecacheModel(STRING(GetModelName()));
 	BaseClass::Precache();
 }
 
@@ -156,7 +177,7 @@ void CNPC_ShadowWalker::Spawn( void )
 {
 	Precache();
 
-	SetModel( "models/monster/subject.mdl" ); // Replace this with setting from Hammer
+	SetModel(STRING(GetModelName()));
 	SetHullType(HULL_HUMAN);
 	SetHullSizeNormal();
 
@@ -174,14 +195,18 @@ void CNPC_ShadowWalker::Spawn( void )
 	{
 		// CapabilitiesAdd(bits_CAP_ANIMATEDFACE);
 		CapabilitiesAdd(bits_CAP_TURN_HEAD);
+		CapabilitiesAdd(bits_CAP_SQUAD);
 		CapabilitiesAdd(bits_CAP_USE_WEAPONS | bits_CAP_AIM_GUN | bits_CAP_MOVE_SHOOT);
-		CapabilitiesAdd(bits_CAP_INNATE_MELEE_ATTACK1);
+		CapabilitiesAdd(bits_CAP_WEAPON_MELEE_ATTACK1 || bits_CAP_WEAPON_MELEE_ATTACK2);
+		CapabilitiesAdd(bits_CAP_INNATE_MELEE_ATTACK1 || bits_CAP_INNATE_MELEE_ATTACK2);
 		CapabilitiesAdd(bits_CAP_DUCK | bits_CAP_DOORS_GROUP);
 		CapabilitiesAdd(bits_CAP_USE_SHOT_REGULATOR);
 	}
 
 	CapabilitiesAdd(bits_CAP_MOVE_GROUND);
 	SetMoveType(MOVETYPE_STEP);
+
+
 
 	NPCInit();
 }
@@ -278,6 +303,12 @@ int CNPC_ShadowWalker::SelectIdleSchedule()
 		return SCHED_INVESTIGATE_SOUND;
 	}
 
+	if (CanPickkUpWeapons() && HasCondition(COND_BETTER_WEAPON_AVAILABLE)) {
+		nSched = SelectScheduleRetrieveItem();
+		if (nSched != SCHED_NONE)
+			return nSched;
+	}
+
 	// no valid route! Wander instead
 	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE)
 		return SCHED_IDLE_WANDER;
@@ -309,6 +340,12 @@ int CNPC_ShadowWalker::SelectAlertSchedule()
 	{
 		// Investigate sound source
 		return SCHED_INVESTIGATE_SOUND;
+	}
+
+	if (CanPickkUpWeapons() && HasCondition(COND_BETTER_WEAPON_AVAILABLE)) {
+		nSched = SelectScheduleRetrieveItem();
+		if (nSched != SCHED_NONE)
+			return nSched;
 	}
 
 	// no valid route! Wander instead
@@ -376,15 +413,11 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 
 	// we can see the enemy
 	if (HasCondition(COND_CAN_MELEE_ATTACK1)) {
-		//if (OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
 			return SCHED_MELEE_ATTACK1;
-		//return SCHED_RUN_FROM_ENEMY;
 	}
 
 	if (HasCondition(COND_CAN_MELEE_ATTACK2)) {
-		//if (OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
 			return SCHED_MELEE_ATTACK2;
-		//return SCHED_RUN_FROM_ENEMY;
 	}
 
 	if (HasRangedWeapon() && GetShotRegulator()->IsInRestInterval())
@@ -429,6 +462,206 @@ bool CNPC_ShadowWalker::HasRangedWeapon()
 
 	return false;
 }
+
+//-----------------------------------------------------------------------------
+// Originally copied from Citizen
+// Purpose: Override base class activiites
+//-----------------------------------------------------------------------------
+Activity CNPC_ShadowWalker::NPC_TranslateActivity(Activity activity)
+{
+	if (activity == ACT_MELEE_ATTACK1)
+	{
+		return ACT_MELEE_ATTACK_SWING;
+	}
+
+	// !!!HACK - Citizens don't have the required animations for shotguns, 
+	// so trick them into using the rifle counterparts for now (sjb)
+	if (activity == ACT_RUN_AIM_SHOTGUN)
+		return ACT_RUN_AIM_RIFLE;
+	if (activity == ACT_WALK_AIM_SHOTGUN)
+		return ACT_WALK_AIM_RIFLE;
+	if (activity == ACT_IDLE_ANGRY_SHOTGUN)
+		return ACT_IDLE_ANGRY_SMG1;
+	if (activity == ACT_RANGE_ATTACK_SHOTGUN_LOW)
+		return ACT_RANGE_ATTACK_SMG1_LOW;
+
+	return BaseClass::NPC_TranslateActivity(activity);
+}
+
+//-----------------------------------------------------------------------------
+// Originally copied from BaseZombie
+// Purpose: Catches the monster-specific events that occur when tagged animation
+//			frames are played.
+// Input  : pEvent - 
+//-----------------------------------------------------------------------------
+//void CNPC_ShadowWalker::HandleAnimEvent(animevent_t *pEvent)
+//{
+//	if (pEvent->event == AE_ZOMBIE_ATTACK_RIGHT)
+//	{
+//		Vector right, forward;
+//		AngleVectors(GetLocalAngles(), &forward, &right, NULL);
+//
+//		right = right * 100;
+//		forward = forward * 200;
+//
+//		QAngle qa(-15, -20, -10);
+//		Vector vec = right + forward;
+//		ClawAttack(GetClawAttackRange(), sk_shadow_walker_dmg_innate_melee.GetFloat(), qa, vec, ZOMBIE_BLOOD_RIGHT_HAND);
+//		return;
+//	}
+//
+//	if (pEvent->event == AE_ZOMBIE_ATTACK_LEFT)
+//	{
+//		Vector right, forward;
+//		AngleVectors(GetLocalAngles(), &forward, &right, NULL);
+//
+//		right = right * -100;
+//		forward = forward * 200;
+//
+//		QAngle qa(-15, 20, -10);
+//		Vector vec = right + forward;
+//		ClawAttack(GetClawAttackRange(), sk_shadow_walker_dmg_innate_melee.GetFloat(), qa, vec, ZOMBIE_BLOOD_LEFT_HAND);
+//		return;
+//	}
+//
+//	if (pEvent->event == AE_ZOMBIE_ATTACK_BOTH)
+//	{
+//		Vector forward;
+//		QAngle qaPunch(45, random->RandomInt(-5, 5), random->RandomInt(-5, 5));
+//		AngleVectors(GetLocalAngles(), &forward);
+//		forward = forward * 200;
+//		ClawAttack(GetClawAttackRange(), sk_shadow_walker_dmg_innate_melee.GetFloat(), qaPunch, forward, ZOMBIE_BLOOD_BOTH_HANDS);
+//		return;
+//	}
+//
+//	BaseClass::HandleAnimEvent(pEvent);
+//}
+
+//-----------------------------------------------------------------------------
+// Originally copied from basezombie
+// Purpose: Look in front and see if the claw hit anything.
+//
+// Input  :	flDist				distance to trace		
+//			iDamage				damage to do if attack hits
+//			vecViewPunch		camera punch (if attack hits player)
+//			vecVelocityPunch	velocity punch (if attack hits player)
+//
+// Output : The entity hit by claws. NULL if nothing.
+//-----------------------------------------------------------------------------
+//CBaseEntity *CNPC_ShadowWalker::ClawAttack(float flDist, int iDamage, QAngle &qaViewPunch, Vector &vecVelocityPunch, int BloodOrigin)
+//{
+//	DevWarning(1, "Claw attack!\n");
+//
+//	// Added test because claw attack anim sometimes used when for cases other than melee
+//	int iDriverInitialHealth = -1;
+//	CBaseEntity *pDriver = NULL;
+//	if (GetEnemy())
+//	{
+//		trace_t	tr;
+//		AI_TraceHull(WorldSpaceCenter(), GetEnemy()->WorldSpaceCenter(), -Vector(8, 8, 8), Vector(8, 8, 8), MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr);
+//
+//		if (tr.fraction < 1.0f)
+//			return NULL;
+//
+//		// CheckTraceHullAttack() can damage player in vehicle as side effect of melee attack damaging physics objects, which the car forwards to the player
+//		// need to detect this to get correct damage effects
+//		CBaseCombatCharacter *pCCEnemy = (GetEnemy() != NULL) ? GetEnemy()->MyCombatCharacterPointer() : NULL;
+//		CBaseEntity *pVehicleEntity;
+//		if (pCCEnemy != NULL && (pVehicleEntity = pCCEnemy->GetVehicleEntity()) != NULL)
+//		{
+//			if (pVehicleEntity->GetServerVehicle() && dynamic_cast<CPropVehicleDriveable *>(pVehicleEntity))
+//			{
+//				pDriver = static_cast<CPropVehicleDriveable *>(pVehicleEntity)->GetDriver();
+//				if (pDriver && pDriver->IsPlayer())
+//				{
+//					iDriverInitialHealth = pDriver->GetHealth();
+//				}
+//				else
+//				{
+//					pDriver = NULL;
+//				}
+//			}
+//		}
+//	}
+//
+//	//
+//	// Trace out a cubic section of our hull and see what we hit.
+//	//
+//	Vector vecMins = GetHullMins();
+//	Vector vecMaxs = GetHullMaxs();
+//	vecMins.z = vecMins.x;
+//	vecMaxs.z = vecMaxs.x;
+//
+//	CBaseEntity *pHurt = NULL;
+//	if (GetEnemy() && GetEnemy()->Classify() == CLASS_BULLSEYE)
+//	{
+//		// We always hit bullseyes we're targeting
+//		pHurt = GetEnemy();
+//		CTakeDamageInfo info(this, this, vec3_origin, GetAbsOrigin(), iDamage, DMG_SLASH);
+//		pHurt->TakeDamage(info);
+//	}
+//	else
+//	{
+//		// Try to hit them with a trace
+//		pHurt = CheckTraceHullAttack(flDist, vecMins, vecMaxs, iDamage, DMG_SLASH);
+//	}
+//
+//	if (pDriver && iDriverInitialHealth != pDriver->GetHealth())
+//	{
+//		pHurt = pDriver;
+//	}
+//
+//	if (pHurt)
+//	{
+//		//AttackHitSound();
+//
+//		CBasePlayer *pPlayer = ToBasePlayer(pHurt);
+//
+//		if (pPlayer != NULL && !(pPlayer->GetFlags() & FL_GODMODE))
+//		{
+//			pPlayer->ViewPunch(qaViewPunch);
+//
+//			pPlayer->VelocityPunch(vecVelocityPunch);
+//		}
+//		else if (!pPlayer && UTIL_ShouldShowBlood(pHurt->BloodColor()))
+//		{
+//			// Hit an NPC. Bleed them!
+//			Vector vecBloodPos;
+//
+//			switch (BloodOrigin)
+//			{
+//			case ZOMBIE_BLOOD_LEFT_HAND:
+//				if (GetAttachment("blood_left", vecBloodPos))
+//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
+//				break;
+//
+//			case ZOMBIE_BLOOD_RIGHT_HAND:
+//				if (GetAttachment("blood_right", vecBloodPos))
+//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
+//				break;
+//
+//			case ZOMBIE_BLOOD_BOTH_HANDS:
+//				if (GetAttachment("blood_left", vecBloodPos))
+//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
+//
+//				if (GetAttachment("blood_right", vecBloodPos))
+//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
+//				break;
+//
+//			case ZOMBIE_BLOOD_BITE:
+//				// No blood for these.
+//				break;
+//			}
+//		}
+//	}
+//	else
+//	{
+//		//AttackMissSound();
+//	}
+//
+//
+//	return pHurt;
+//}
 
 //-----------------------------------------------------------------------------
 // Purpose: 
