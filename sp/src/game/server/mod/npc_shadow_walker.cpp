@@ -76,7 +76,7 @@
 // Convars
 //=========================================================
 
-ConVar	sk_shadow_walker_dmg_innate_melee("sk_zombie_dmg_one_slash", "0");
+//ConVar	sk_shadow_walker_dmg_innate_melee("sk_zombie_dmg_one_slash", "0");
 
 //=========================================================
 //=========================================================
@@ -133,6 +133,9 @@ public:
 
 private:
 	bool		HasRangedWeapon();
+	void		PrecacheNPCSoundScript(string_t* SoundName, string_t defaultSoundName);
+
+	bool		m_bWanderToggle; // Boolean to toggle wandering / standing every think cycle
 };
 
 
@@ -144,6 +147,7 @@ IMPLEMENT_CUSTOM_AI( npc_citizen,CNPC_ShadowWalker );
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_ShadowWalker )
+	DEFINE_KEYFIELD(m_iHealth, FIELD_INTEGER, "Health"),
 	DEFINE_KEYFIELD(m_iszFearSound, FIELD_SOUNDNAME, "FearSound"),
 	DEFINE_KEYFIELD(m_iszDeathSound, FIELD_SOUNDNAME, "DeathSound"),
 	DEFINE_KEYFIELD(m_iszIdleSound, FIELD_SOUNDNAME, "IdleSound"),
@@ -151,6 +155,9 @@ BEGIN_DATADESC( CNPC_ShadowWalker )
 	DEFINE_KEYFIELD(m_iszAlertSound, FIELD_SOUNDNAME, "AlertSound"),
 	DEFINE_KEYFIELD(m_iszLostEnemySound, FIELD_SOUNDNAME, "LostEnemySound"),
 	DEFINE_KEYFIELD(m_iszFoundEnemySound, FIELD_SOUNDNAME, "FoundEnemySound"),
+
+
+	DEFINE_FIELD(m_bWanderToggle, FIELD_BOOLEAN)
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -183,17 +190,20 @@ void CNPC_ShadowWalker::Precache( void )
 		SetModelName(MAKE_STRING("models/monster/subject.mdl"));
 	}
 
-	if (!m_iszFearSound) {
-		m_iszFearSound = MAKE_STRING("NPC_Shadow_Walker.Fear");
-	}
-
-	if (!m_iszDeathSound) {
-		m_iszDeathSound = MAKE_STRING("NPC_Shadow_Walker.Die");
-	}
-
 	PrecacheModel(STRING(GetModelName()));
-	PrecacheScriptSound(STRING(m_iszFearSound));
+
+	PrecacheNPCSoundScript(&m_iszFearSound, MAKE_STRING("NPC_Shadow_Walker.Fear"));
+	PrecacheNPCSoundScript(&m_iszIdleSound, MAKE_STRING("NPC_Shadow_Walker.Idle"));
+	PrecacheNPCSoundScript(&m_iszAlertSound, MAKE_STRING("NPC_Shadow_Walker.Alert"));
+	PrecacheNPCSoundScript(&m_iszPainSound, MAKE_STRING("NPC_Shadow_Walker.Pain"));
+	PrecacheNPCSoundScript(&m_iszLostEnemySound, MAKE_STRING("NPC_Shadow_Walker.LostEnemy"));
+	PrecacheNPCSoundScript(&m_iszFoundEnemySound, MAKE_STRING("NPC_Shadow_Walker.FoundEnemy"));
+	PrecacheNPCSoundScript(&m_iszDeathSound, MAKE_STRING("NPC_Shadow_Walker.Death"));
+
 	PrecacheScriptSound(STRING(m_iszDeathSound));
+
+	m_bWanderToggle = false;
+
 	BaseClass::Precache();
 }
 
@@ -215,7 +225,12 @@ void CNPC_ShadowWalker::Spawn( void )
 	AddSolidFlags( FSOLID_NOT_STANDABLE );
 	SetMoveType( MOVETYPE_STEP );
 	SetBloodColor( BLOOD_COLOR_RED );
-	m_iHealth			= 50; // Replace this with setting from Hammer
+	
+	if (m_iHealth < 1) 
+	{
+		m_iHealth = 50;
+	}
+
 	m_flFieldOfView		= 0.5;
 	m_NPCState			= NPC_STATE_NONE;
 
@@ -338,8 +353,15 @@ int CNPC_ShadowWalker::SelectIdleSchedule()
 	}
 
 	// no valid route! Wander instead
-	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE)
-		return SCHED_IDLE_WANDER;
+	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE) {
+		m_bWanderToggle = !m_bWanderToggle;
+		if (m_bWanderToggle) {
+			return SCHED_IDLE_WANDER;
+		}
+		else {
+			return SCHED_IDLE_STAND;
+		}
+	}
 
 	// valid route. Get moving
 	return SCHED_IDLE_WALK;
@@ -367,6 +389,7 @@ int CNPC_ShadowWalker::SelectAlertSchedule()
 		HasCondition(COND_HEAR_COMBAT))
 	{
 		// Investigate sound source
+		AlertSound();
 		return SCHED_INVESTIGATE_SOUND;
 	}
 
@@ -377,8 +400,15 @@ int CNPC_ShadowWalker::SelectAlertSchedule()
 	}
 
 	// no valid route! Wander instead
-	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE)
-		return SCHED_IDLE_WANDER;
+	if (GetNavigator()->GetGoalType() == GOALTYPE_NONE) {
+		m_bWanderToggle = !m_bWanderToggle;
+		if (m_bWanderToggle) {
+			return SCHED_IDLE_WANDER;
+		}
+		else {
+			return SCHED_ALERT_STAND;
+		}
+	}
 
 	// valid route. Get moving
 	return SCHED_ALERT_WALK;
@@ -402,6 +432,7 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 
 		if (ChooseEnemy())
 		{
+			FoundEnemySound();
 			ClearCondition(COND_ENEMY_DEAD);
 			return SelectSchedule();
 		}
@@ -431,6 +462,7 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 	// Can we see the enemy?
 	if (!HasCondition(COND_SEE_ENEMY))
 	{
+		FoundEnemySound();
 		// chase!
 		return SCHED_CHASE_ENEMY;
 	}
@@ -698,6 +730,14 @@ void CNPC_ShadowWalker::PlaySound(string_t soundname)
 {
 	CPASAttenuationFilter filter2(this, STRING(soundname));
 	EmitSound(filter2, entindex(), STRING(soundname));
+}
+
+void CNPC_ShadowWalker::PrecacheNPCSoundScript(string_t * SoundName, string_t defaultSoundName) 
+{
+	if (!SoundName) {
+		*SoundName = defaultSoundName;
+	}
+	PrecacheScriptSound(STRING(*SoundName));
 }
 
 //-----------------------------------------------------------------------------
