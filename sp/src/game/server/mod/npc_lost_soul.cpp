@@ -119,8 +119,6 @@ public:
 	void			CheckCollisions(float flInterval);
 
 	void			Slice(CBaseEntity *pHitEntity, float flInterval, trace_t &tr);
-	//void			Bump(CBaseEntity *pHitEntity, float flInterval, trace_t &tr);
-	//void			Splash(const Vector &vecSplashPos);
 
 	virtual int				OnTakeDamage_Alive(const CTakeDamageInfo &info);
 
@@ -138,11 +136,14 @@ public:
 
 	void			MoveToTarget(float flInterval, const Vector &MoveTarget);
 
+	void ShowHostile(bool hostile = true);
 
 	DECLARE_DATADESC();
 
 
 	DEFINE_CUSTOM_AI;
+private:
+	float			m_flNextEngineSoundTime;
 };
 
 
@@ -154,9 +155,9 @@ IMPLEMENT_CUSTOM_AI( npc_manhack,CNPC_LostSoul );
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC( CNPC_LostSoul )
-
-	//DEFINE_FIELD(m_bHasWeapon, FIELD_BOOLEAN),
-
+	DEFINE_KEYFIELD(m_iHealth, FIELD_INTEGER, "Health"),
+	
+	DEFINE_FIELD(m_flNextEngineSoundTime, FIELD_TIME)
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -178,6 +179,13 @@ void CNPC_LostSoul::Precache( void )
 {
 	PrecacheModel( "models/skeleton/skeleton_torso3.mdl" ); // Replace this with setting from Hammer
 
+	PrecacheScriptSound("NPC_LostSoul.Die");
+	PrecacheScriptSound("NPC_LostSoul.Burn");
+	PrecacheScriptSound("NPC_LostSoul.Float");
+	PrecacheScriptSound("NPC_LostSoul.ChargeAnnounce");
+	PrecacheScriptSound("NPC_LostSoul.ChargeEnd");
+	PrecacheScriptSound("NPC_LostSoul.Stunned");
+
 	BaseClass::Precache();
 }
 
@@ -194,7 +202,7 @@ void CNPC_LostSoul::Spawn( void )
 	Precache();
 
 	SetModel("models/skeleton/skeleton_torso3.mdl");
-	SetHullType(HULL_HUMAN); // I guess?
+	SetHullType(HULL_TINY_CENTERED); // There was an error being thrown about collision model being smaller than nav hull - need to look into
 	SetHullSizeNormal();
 
 	SetSolid(SOLID_BBOX);
@@ -210,7 +218,12 @@ void CNPC_LostSoul::Spawn( void )
 		SetMoveType(MOVETYPE_VPHYSICS);
 	}
 
-	m_iHealth = sk_lostsoul_health.GetFloat();
+	// Use the convar if health is less than 1
+	if (m_iHealth < 1)
+	{
+		m_iHealth = sk_lostsoul_health.GetFloat();
+	}
+
 	SetViewOffset(Vector(0, 0, 10));		// Position of the eyes relative to NPC's origin.
 	m_flFieldOfView = VIEW_FIELD_FULL;
 	m_NPCState = NPC_STATE_NONE;
@@ -254,11 +267,12 @@ void CNPC_LostSoul::Spawn( void )
 	if (pFlame)
 	{
 		pFlame->SetLifetime(HUGE_VAL);
-		//AddFlag(FL_ONFIRE);
 		SetEffectEntity(pFlame);
 		pFlame->SetSize(8);
 		pFlame->SetDamage(0.0f);
 	}
+
+	m_flNextEngineSoundTime = gpGlobals->curtime;
 }
 
 int CNPC_LostSoul::OnTakeDamage_Alive(const CTakeDamageInfo &info)
@@ -309,7 +323,24 @@ void CNPC_LostSoul::SoundInit(void)
 
 void CNPC_LostSoul::PlayFlySound(void)
 {
-	// Shhh, don't do anything.
+	float flEnemyDist;
+
+	if (GetEnemy())
+	{
+		flEnemyDist = (GetAbsOrigin() - GetEnemy()->GetAbsOrigin()).Length();
+	}
+	else
+	{
+		flEnemyDist = FLT_MAX;
+	}
+
+	// Play special engine every once in a while
+	if (gpGlobals->curtime > m_flNextEngineSoundTime && flEnemyDist < 48)
+	{
+		m_flNextEngineSoundTime = gpGlobals->curtime + random->RandomFloat(3.0, 10.0);
+
+		EmitSound("NPC_LostSoul.Float");
+	}
 }
 
 void CNPC_LostSoul::StartEye(void)
@@ -517,6 +548,22 @@ void CNPC_LostSoul::CheckCollisions(float flInterval)
 			// Slice this thing
 			Slice(pHitEntity, flInterval, tr);
 		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : hostile - 
+//-----------------------------------------------------------------------------
+void CNPC_LostSoul::ShowHostile(bool hostile /*= true*/)
+{
+	if (hostile)
+	{
+		EmitSound("NPC_LostSoul.ChargeAnnounce");
+	}
+	else
+	{
+		EmitSound("NPC_LostSoul.ChargeEnd");
 	}
 }
 
