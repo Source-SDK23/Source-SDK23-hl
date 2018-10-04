@@ -1,25 +1,13 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
-// This is a skeleton file for use when creating a new 
-// NPC. Copy and rename this file for the new
-// NPC and add the copy to the build.
+//=//=============================================================================//
 //
-// Leave this file in the build until we ship! Allowing 
-// this file to be rebuilt with the rest of the game ensures
-// that it stays up to date with the rest of the NPC code.
+// Purpose: A malevolent being from a parallel universe which at one point
+//		may have been human.		
 //
-// Replace occurances of CNPC_ShadowWalker with the new NPC's
-// classname. Don't forget the lower-case occurance in 
-// LINK_ENTITY_TO_CLASS()
+//		npc_shadow_walker is designed to be reusable as a generic horror 
+//		game style npc. Its model and sound files may be configured through
+//		the hammer editor using keyfields.
 //
-//
-// ASSUMPTIONS MADE:
-//
-// You're making a character based on CAI_BaseNPC. If this 
-// is not true, make sure you replace all occurances
-// of 'CAI_BaseNPC' in this file with the appropriate 
-// parent class.
-//
-// You're making a human-sized NPC that walks.
+//	Author: 1upD
 //
 //=============================================================================//
 #include "cbase.h"
@@ -36,47 +24,9 @@
 #include "engine/IEngineSound.h"
 #include "basehlcombatweapon_shared.h"
 #include "ai_squadslot.h"
-//#include "npc_BaseZombie.h"
-//#include "vehicle_base.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-//=========================================================
-// Private activities
-//=========================================================
-//int	ACT_MYCUSTOMACTIVITY = -1;
-
-//=========================================================
-// Custom schedules
-//=========================================================
-//enum
-//{
-//	SCHED_MYCUSTOMSCHEDULE = LAST_SHARED_SCHEDULE,
-//};
-
-//=========================================================
-// Custom tasks
-//=========================================================
-//enum 
-//{
-//	TASK_MYCUSTOMTASK = LAST_SHARED_TASK,
-//};
-
-
-//=========================================================
-// Custom Conditions
-//=========================================================
-//enum 
-//{
-//	COND_MYCUSTOMCONDITION = LAST_SHARED_CONDITION,
-//};
-
-//=========================================================
-// Convars
-//=========================================================
-
-//ConVar	sk_shadow_walker_dmg_innate_melee("sk_zombie_dmg_one_slash", "0");
 
 //=========================================================
 //=========================================================
@@ -95,6 +45,7 @@ public:
 	virtual int				SelectAlertSchedule();
 	virtual int				SelectCombatSchedule();
 	virtual bool			CanPickkUpWeapons() { return true;  }
+	Activity		NPC_TranslateActivity(Activity eNewActivity);
 
 	// Sounds
 	virtual void		PlaySound(string_t soundname, bool optional);
@@ -105,29 +56,16 @@ public:
 	virtual void		FearSound(void) { PlaySound(m_iszFearSound, false); };
 	virtual void		LostEnemySound(void) { PlaySound(m_iszLostEnemySound, false); };
 	virtual void		FoundEnemySound(void) { PlaySound(m_iszFoundEnemySound, false); };
-
-	// Citizen methods
-	Activity		NPC_TranslateActivity(Activity eNewActivity);
-
-	// Zombie methods
-	//void HandleAnimEvent(animevent_t *pEvent);
-	//virtual CBaseEntity *ClawAttack(float flDist, int iDamage, QAngle &qaViewPunch, Vector &vecVelocityPunch, int BloodOrigin);
-	//virtual float GetClawAttackRange() const { return ZOMBIE_MELEE_REACH; }
 	
 	DECLARE_DATADESC();
 
-	// This is a dummy field. In order to provide save/restore
-	// code in this file, we must have at least one field
-	// for the code to operate on. Delete this field when
-	// you are ready to do your own save/restore for this
-	// character.
 	string_t m_iszFearSound;			// Path/filename of WAV file to play.
 	string_t m_iszDeathSound;			// Path/filename of WAV file to play.
 	string_t m_iszIdleSound;			// Path/filename of WAV file to play.
 	string_t m_iszPainSound;			// Path/filename of WAV file to play.
 	string_t m_iszAlertSound;			// Path/filename of WAV file to play.
 	string_t m_iszLostEnemySound;		// Path/filename of WAV file to play.
-	string_t m_iszFoundEnemySound;			// Path/filename of WAV file to play.
+	string_t m_iszFoundEnemySound;		// Path/filename of WAV file to play.
 
 	DEFINE_CUSTOM_AI;
 
@@ -136,9 +74,9 @@ private:
 	void		PrecacheNPCSoundScript(string_t* SoundName, string_t defaultSoundName);
 
 
-	bool		m_bUseBothSquadSlots; // If true use two squad slots, if false use one squad slot
-	bool		m_bWanderToggle; // Boolean to toggle wandering / standing every think cycle
-	float		m_flNextSoundTime; // Next time at which this NPC is allowed to play an NPC sound
+	bool		m_bUseBothSquadSlots;	// If true use two squad slots, if false use one squad slot
+	bool		m_bWanderToggle;		// Boolean to toggle wandering / standing every think cycle
+	float		m_flNextSoundTime;		// Next time at which this NPC is allowed to play an NPC sound
 };
 
 
@@ -172,14 +110,6 @@ END_DATADESC()
 void CNPC_ShadowWalker::InitCustomSchedules(void) 
 {
 	INIT_CUSTOM_AI(CNPC_ShadowWalker);
-
-	//ADD_CUSTOM_TASK(CNPC_ShadowWalker,		TASK_MYCUSTOMTASK);
-
-	//ADD_CUSTOM_SCHEDULE(CNPC_ShadowWalker,	SCHED_MYCUSTOMSCHEDULE);
-
-	//ADD_CUSTOM_ACTIVITY(CNPC_ShadowWalker,	ACT_MYCUSTOMACTIVITY);
-
-	//ADD_CUSTOM_CONDITION(CNPC_ShadowWalker,	COND_MYCUSTOMCONDITION);
 }
 
 //-----------------------------------------------------------------------------
@@ -189,13 +119,13 @@ void CNPC_ShadowWalker::InitCustomSchedules(void)
 //-----------------------------------------------------------------------------
 void CNPC_ShadowWalker::Precache( void )
 {
+	// If no model name is supplied, use the default Shadow Walker model
 	if (!GetModelName())
 	{
 		SetModelName(MAKE_STRING("models/monster/subject.mdl"));
 	}
 
 	PrecacheModel(STRING(GetModelName()));
-
 	PrecacheNPCSoundScript(&m_iszFearSound, MAKE_STRING("NPC_Shadow_Walker.Fear"));
 	PrecacheNPCSoundScript(&m_iszIdleSound, MAKE_STRING("NPC_Shadow_Walker.Idle"));
 	PrecacheNPCSoundScript(&m_iszAlertSound, MAKE_STRING("NPC_Shadow_Walker.Alert"));
@@ -203,8 +133,6 @@ void CNPC_ShadowWalker::Precache( void )
 	PrecacheNPCSoundScript(&m_iszLostEnemySound, MAKE_STRING("NPC_Shadow_Walker.LostEnemy"));
 	PrecacheNPCSoundScript(&m_iszFoundEnemySound, MAKE_STRING("NPC_Shadow_Walker.FoundEnemy"));
 	PrecacheNPCSoundScript(&m_iszDeathSound, MAKE_STRING("NPC_Shadow_Walker.Death"));
-
-	PrecacheScriptSound(STRING(m_iszDeathSound));
 
 	m_bWanderToggle = false;
 
@@ -230,6 +158,7 @@ void CNPC_ShadowWalker::Spawn( void )
 	SetMoveType( MOVETYPE_STEP );
 	SetBloodColor( BLOOD_COLOR_RED );
 	
+	// If the health has not been set through Hammer, use a default health value of 50
 	if (m_iHealth < 1) 
 	{
 		m_iHealth = 50;
@@ -243,7 +172,6 @@ void CNPC_ShadowWalker::Spawn( void )
 
 	if (!HasSpawnFlags(SF_NPC_START_EFFICIENT))
 	{
-		// CapabilitiesAdd(bits_CAP_ANIMATEDFACE);
 		CapabilitiesAdd(bits_CAP_TURN_HEAD);
 		CapabilitiesAdd(bits_CAP_SQUAD);
 		CapabilitiesAdd(bits_CAP_USE_WEAPONS | bits_CAP_AIM_GUN | bits_CAP_MOVE_SHOOT);
@@ -259,10 +187,8 @@ void CNPC_ShadowWalker::Spawn( void )
 	NPCInit();
 }
 
-
 //-----------------------------------------------------------------------------
 // Purpose: Choose a schedule after schedule failed
-// Copied from npc_citizen
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectFailSchedule(int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode)
 {
@@ -278,7 +204,7 @@ int CNPC_ShadowWalker::SelectFailSchedule(int failedSchedule, int failedTask, AI
 		// I can't take cover, so I need to run away!
 		return SCHED_RUN_FROM_ENEMY;
 	case SCHED_CHASE_ENEMY:
-		// I can't run away, so I will just run randomly!
+		// I can't run towards the enemy, so I will just run randomly!
 		return SCHED_CHASE_ENEMY_FAILED;
 	case SCHED_RUN_FROM_ENEMY:
 		// I can't run away, so I will just run randomly!
@@ -289,7 +215,7 @@ int CNPC_ShadowWalker::SelectFailSchedule(int failedSchedule, int failedTask, AI
 }
 
 //-----------------------------------------------------------------------------
-// Copied from npc_citizen
+// Purpose: Select a schedule to retrieve better weapons if they are available.
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectScheduleRetrieveItem()
 {
@@ -310,7 +236,8 @@ int CNPC_ShadowWalker::SelectScheduleRetrieveItem()
 }
 
 //-----------------------------------------------------------------------------
-// Copied from npc_citizen - used as SelectSchedule instead of SelectPriorityAction
+// Purpose: Select a schedule to execute based on conditions. 
+// This is the most critical AI method.
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectSchedule()
 {
@@ -374,7 +301,6 @@ int CNPC_ShadowWalker::SelectIdleSchedule()
 
 //-----------------------------------------------------------------------------
 // Alert schedule selection
-// Copied from baseNPC
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectAlertSchedule()
 {
@@ -446,6 +372,7 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 		return SelectSchedule();
 	}
 
+	// If in a squad, only one or two shadow walkers can chase the player. This is configurable through Hammer.
 	bool bCanChase = false;
 	if (m_bUseBothSquadSlots) {
 		bCanChase = OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2);
@@ -454,17 +381,12 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 		bCanChase = OccupyStrategySlot(SQUAD_SLOT_ATTACK1);
 	}
 
-
 	// If I'm scared of this enemy and he's looking at me, run away
-	// If in a squad, all but one Shadow walker must be afraid of the player
-	if (IRelationType(GetEnemy()) == D_FR || !bCanChase)
+	if ((IRelationType(GetEnemy()) == D_FR || !bCanChase) && (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME) && HasCondition(COND_HAVE_ENEMY_LOS)))
 	{
-		if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME)  && HasCondition(COND_HAVE_ENEMY_LOS))
-		{
 			// TODO: Check if silent
 			FearSound();
 			return SCHED_RUN_FROM_ENEMY;
-		}
 	}
 
 	// Reloading conditions are necessary just in case for some reason somebody gives the Shadow Walker a gun
@@ -476,8 +398,7 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 	// Can we see the enemy?
 	if (!HasCondition(COND_SEE_ENEMY))
 	{
-		FoundEnemySound();
-		// chase!
+		// Chase!
 		return SCHED_CHASE_ENEMY;
 	}
 
@@ -538,204 +459,25 @@ bool CNPC_ShadowWalker::HasRangedWeapon()
 }
 
 //-----------------------------------------------------------------------------
-// Originally copied from Citizen
 // Purpose: Override base class activiites
 //-----------------------------------------------------------------------------
 Activity CNPC_ShadowWalker::NPC_TranslateActivity(Activity activity)
 {
-	if (activity == ACT_MELEE_ATTACK1)
-	{
+	switch (activity) {
+	case ACT_MELEE_ATTACK1:
 		return ACT_MELEE_ATTACK_SWING;
-	}
-
-	// !!!HACK - Citizens don't have the required animations for shotguns, 
-	// so trick them into using the rifle counterparts for now (sjb)
-	if (activity == ACT_RUN_AIM_SHOTGUN)
+	case ACT_RUN_AIM_SHOTGUN:
 		return ACT_RUN_AIM_RIFLE;
-	if (activity == ACT_WALK_AIM_SHOTGUN)
+	case ACT_WALK_AIM_SHOTGUN:
 		return ACT_WALK_AIM_RIFLE;
-	if (activity == ACT_IDLE_ANGRY_SHOTGUN)
+	case ACT_IDLE_ANGRY_SHOTGUN:
 		return ACT_IDLE_ANGRY_SMG1;
-	if (activity == ACT_RANGE_ATTACK_SHOTGUN_LOW)
+	case ACT_RANGE_ATTACK_SHOTGUN_LOW:
 		return ACT_RANGE_ATTACK_SMG1_LOW;
-
-	return BaseClass::NPC_TranslateActivity(activity);
+	default:
+		return BaseClass::NPC_TranslateActivity(activity);
+	}
 }
-
-//-----------------------------------------------------------------------------
-// Originally copied from BaseZombie
-// Purpose: Catches the monster-specific events that occur when tagged animation
-//			frames are played.
-// Input  : pEvent - 
-//-----------------------------------------------------------------------------
-//void CNPC_ShadowWalker::HandleAnimEvent(animevent_t *pEvent)
-//{
-//	if (pEvent->event == AE_ZOMBIE_ATTACK_RIGHT)
-//	{
-//		Vector right, forward;
-//		AngleVectors(GetLocalAngles(), &forward, &right, NULL);
-//
-//		right = right * 100;
-//		forward = forward * 200;
-//
-//		QAngle qa(-15, -20, -10);
-//		Vector vec = right + forward;
-//		ClawAttack(GetClawAttackRange(), sk_shadow_walker_dmg_innate_melee.GetFloat(), qa, vec, ZOMBIE_BLOOD_RIGHT_HAND);
-//		return;
-//	}
-//
-//	if (pEvent->event == AE_ZOMBIE_ATTACK_LEFT)
-//	{
-//		Vector right, forward;
-//		AngleVectors(GetLocalAngles(), &forward, &right, NULL);
-//
-//		right = right * -100;
-//		forward = forward * 200;
-//
-//		QAngle qa(-15, 20, -10);
-//		Vector vec = right + forward;
-//		ClawAttack(GetClawAttackRange(), sk_shadow_walker_dmg_innate_melee.GetFloat(), qa, vec, ZOMBIE_BLOOD_LEFT_HAND);
-//		return;
-//	}
-//
-//	if (pEvent->event == AE_ZOMBIE_ATTACK_BOTH)
-//	{
-//		Vector forward;
-//		QAngle qaPunch(45, random->RandomInt(-5, 5), random->RandomInt(-5, 5));
-//		AngleVectors(GetLocalAngles(), &forward);
-//		forward = forward * 200;
-//		ClawAttack(GetClawAttackRange(), sk_shadow_walker_dmg_innate_melee.GetFloat(), qaPunch, forward, ZOMBIE_BLOOD_BOTH_HANDS);
-//		return;
-//	}
-//
-//	BaseClass::HandleAnimEvent(pEvent);
-//}
-
-//-----------------------------------------------------------------------------
-// Originally copied from basezombie
-// Purpose: Look in front and see if the claw hit anything.
-//
-// Input  :	flDist				distance to trace		
-//			iDamage				damage to do if attack hits
-//			vecViewPunch		camera punch (if attack hits player)
-//			vecVelocityPunch	velocity punch (if attack hits player)
-//
-// Output : The entity hit by claws. NULL if nothing.
-//-----------------------------------------------------------------------------
-//CBaseEntity *CNPC_ShadowWalker::ClawAttack(float flDist, int iDamage, QAngle &qaViewPunch, Vector &vecVelocityPunch, int BloodOrigin)
-//{
-//	DevWarning(1, "Claw attack!\n");
-//
-//	// Added test because claw attack anim sometimes used when for cases other than melee
-//	int iDriverInitialHealth = -1;
-//	CBaseEntity *pDriver = NULL;
-//	if (GetEnemy())
-//	{
-//		trace_t	tr;
-//		AI_TraceHull(WorldSpaceCenter(), GetEnemy()->WorldSpaceCenter(), -Vector(8, 8, 8), Vector(8, 8, 8), MASK_SOLID_BRUSHONLY, this, COLLISION_GROUP_NONE, &tr);
-//
-//		if (tr.fraction < 1.0f)
-//			return NULL;
-//
-//		// CheckTraceHullAttack() can damage player in vehicle as side effect of melee attack damaging physics objects, which the car forwards to the player
-//		// need to detect this to get correct damage effects
-//		CBaseCombatCharacter *pCCEnemy = (GetEnemy() != NULL) ? GetEnemy()->MyCombatCharacterPointer() : NULL;
-//		CBaseEntity *pVehicleEntity;
-//		if (pCCEnemy != NULL && (pVehicleEntity = pCCEnemy->GetVehicleEntity()) != NULL)
-//		{
-//			if (pVehicleEntity->GetServerVehicle() && dynamic_cast<CPropVehicleDriveable *>(pVehicleEntity))
-//			{
-//				pDriver = static_cast<CPropVehicleDriveable *>(pVehicleEntity)->GetDriver();
-//				if (pDriver && pDriver->IsPlayer())
-//				{
-//					iDriverInitialHealth = pDriver->GetHealth();
-//				}
-//				else
-//				{
-//					pDriver = NULL;
-//				}
-//			}
-//		}
-//	}
-//
-//	//
-//	// Trace out a cubic section of our hull and see what we hit.
-//	//
-//	Vector vecMins = GetHullMins();
-//	Vector vecMaxs = GetHullMaxs();
-//	vecMins.z = vecMins.x;
-//	vecMaxs.z = vecMaxs.x;
-//
-//	CBaseEntity *pHurt = NULL;
-//	if (GetEnemy() && GetEnemy()->Classify() == CLASS_BULLSEYE)
-//	{
-//		// We always hit bullseyes we're targeting
-//		pHurt = GetEnemy();
-//		CTakeDamageInfo info(this, this, vec3_origin, GetAbsOrigin(), iDamage, DMG_SLASH);
-//		pHurt->TakeDamage(info);
-//	}
-//	else
-//	{
-//		// Try to hit them with a trace
-//		pHurt = CheckTraceHullAttack(flDist, vecMins, vecMaxs, iDamage, DMG_SLASH);
-//	}
-//
-//	if (pDriver && iDriverInitialHealth != pDriver->GetHealth())
-//	{
-//		pHurt = pDriver;
-//	}
-//
-//	if (pHurt)
-//	{
-//		//AttackHitSound();
-//
-//		CBasePlayer *pPlayer = ToBasePlayer(pHurt);
-//
-//		if (pPlayer != NULL && !(pPlayer->GetFlags() & FL_GODMODE))
-//		{
-//			pPlayer->ViewPunch(qaViewPunch);
-//
-//			pPlayer->VelocityPunch(vecVelocityPunch);
-//		}
-//		else if (!pPlayer && UTIL_ShouldShowBlood(pHurt->BloodColor()))
-//		{
-//			// Hit an NPC. Bleed them!
-//			Vector vecBloodPos;
-//
-//			switch (BloodOrigin)
-//			{
-//			case ZOMBIE_BLOOD_LEFT_HAND:
-//				if (GetAttachment("blood_left", vecBloodPos))
-//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
-//				break;
-//
-//			case ZOMBIE_BLOOD_RIGHT_HAND:
-//				if (GetAttachment("blood_right", vecBloodPos))
-//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
-//				break;
-//
-//			case ZOMBIE_BLOOD_BOTH_HANDS:
-//				if (GetAttachment("blood_left", vecBloodPos))
-//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
-//
-//				if (GetAttachment("blood_right", vecBloodPos))
-//					SpawnBlood(vecBloodPos, g_vecAttackDir, pHurt->BloodColor(), MIN(iDamage, 30));
-//				break;
-//
-//			case ZOMBIE_BLOOD_BITE:
-//				// No blood for these.
-//				break;
-//			}
-//		}
-//	}
-//	else
-//	{
-//		//AttackMissSound();
-//	}
-//
-//
-//	return pHurt;
-//}
 
 //-----------------------------------------------------------------------------
 // Purpose: Play NPC soundscript
@@ -748,11 +490,11 @@ void CNPC_ShadowWalker::PlaySound(string_t soundname, bool required /*= false */
 		CPASAttenuationFilter filter2(this, STRING(soundname));
 		EmitSound(filter2, entindex(), STRING(soundname));
 	}
-
-
-
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: Assign a default soundscript if none is provided, then precache
+//-----------------------------------------------------------------------------
 void CNPC_ShadowWalker::PrecacheNPCSoundScript(string_t * SoundName, string_t defaultSoundName) 
 {
 	if (!SoundName) {
