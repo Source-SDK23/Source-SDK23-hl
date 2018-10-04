@@ -97,14 +97,14 @@ public:
 	virtual bool			CanPickkUpWeapons() { return true;  }
 
 	// Sounds
-	virtual void		PlaySound(string_t soundname);
-	virtual void		DeathSound(const CTakeDamageInfo &info) { PlaySound(m_iszDeathSound); }
-	virtual void		AlertSound(void) { PlaySound(m_iszAlertSound); };
-	virtual void		IdleSound(void) { PlaySound(m_iszIdleSound); };
-	virtual void		PainSound(const CTakeDamageInfo &info) { PlaySound(m_iszPainSound); };
-	virtual void		FearSound(void) { PlaySound(m_iszFearSound); };
-	virtual void		LostEnemySound(void) { PlaySound(m_iszLostEnemySound); };
-	virtual void		FoundEnemySound(void) { PlaySound(m_iszFoundEnemySound); };
+	virtual void		PlaySound(string_t soundname, bool optional);
+	virtual void		DeathSound(const CTakeDamageInfo &info) { PlaySound(m_iszDeathSound, true); }
+	virtual void		AlertSound(void) { PlaySound(m_iszAlertSound, false); };
+	virtual void		IdleSound(void) { PlaySound(m_iszIdleSound, false); };
+	virtual void		PainSound(const CTakeDamageInfo &info) { PlaySound(m_iszPainSound, true); };
+	virtual void		FearSound(void) { PlaySound(m_iszFearSound, false); };
+	virtual void		LostEnemySound(void) { PlaySound(m_iszLostEnemySound, false); };
+	virtual void		FoundEnemySound(void) { PlaySound(m_iszFoundEnemySound, false); };
 
 	// Citizen methods
 	Activity		NPC_TranslateActivity(Activity eNewActivity);
@@ -135,7 +135,10 @@ private:
 	bool		HasRangedWeapon();
 	void		PrecacheNPCSoundScript(string_t* SoundName, string_t defaultSoundName);
 
+
+	bool		m_bUseBothSquadSlots; // If true use two squad slots, if false use one squad slot
 	bool		m_bWanderToggle; // Boolean to toggle wandering / standing every think cycle
+	float		m_flNextSoundTime; // Next time at which this NPC is allowed to play an NPC sound
 };
 
 
@@ -155,9 +158,10 @@ BEGIN_DATADESC( CNPC_ShadowWalker )
 	DEFINE_KEYFIELD(m_iszAlertSound, FIELD_SOUNDNAME, "AlertSound"),
 	DEFINE_KEYFIELD(m_iszLostEnemySound, FIELD_SOUNDNAME, "LostEnemySound"),
 	DEFINE_KEYFIELD(m_iszFoundEnemySound, FIELD_SOUNDNAME, "FoundEnemySound"),
+	DEFINE_KEYFIELD(m_bUseBothSquadSlots, FIELD_BOOLEAN, "UseBothSquadSlots"),
 
-
-	DEFINE_FIELD(m_bWanderToggle, FIELD_BOOLEAN)
+	DEFINE_FIELD(m_bWanderToggle, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_flNextSoundTime, FIELD_TIME)
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -232,6 +236,7 @@ void CNPC_ShadowWalker::Spawn( void )
 	}
 
 	m_flFieldOfView		= 0.5;
+	m_flNextSoundTime = gpGlobals->curtime;
 	m_NPCState			= NPC_STATE_NONE;
 
 	CapabilitiesClear();
@@ -441,9 +446,18 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 		return SelectSchedule();
 	}
 
+	bool bCanChase = false;
+	if (m_bUseBothSquadSlots) {
+		bCanChase = OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2);
+	}
+	else {
+		bCanChase = OccupyStrategySlot(SQUAD_SLOT_ATTACK1);
+	}
+
+
 	// If I'm scared of this enemy and he's looking at me, run away
 	// If in a squad, all but one Shadow walker must be afraid of the player
-	if (IRelationType(GetEnemy()) == D_FR || !OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2))
+	if (IRelationType(GetEnemy()) == D_FR || !bCanChase)
 	{
 		if (HasCondition(COND_SEE_ENEMY) && HasCondition(COND_ENEMY_FACING_ME)  && HasCondition(COND_HAVE_ENEMY_LOS))
 		{
@@ -726,10 +740,17 @@ Activity CNPC_ShadowWalker::NPC_TranslateActivity(Activity activity)
 //-----------------------------------------------------------------------------
 // Purpose: Play NPC soundscript
 //-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::PlaySound(string_t soundname)
+void CNPC_ShadowWalker::PlaySound(string_t soundname, bool required /*= false */)
 {
-	CPASAttenuationFilter filter2(this, STRING(soundname));
-	EmitSound(filter2, entindex(), STRING(soundname));
+	if (required || gpGlobals->curtime > m_flNextSoundTime)
+	{
+		m_flNextSoundTime = gpGlobals->curtime + random->RandomFloat(1.0, 2.0);
+		CPASAttenuationFilter filter2(this, STRING(soundname));
+		EmitSound(filter2, entindex(), STRING(soundname));
+	}
+
+
+
 }
 
 void CNPC_ShadowWalker::PrecacheNPCSoundScript(string_t * SoundName, string_t defaultSoundName) 
