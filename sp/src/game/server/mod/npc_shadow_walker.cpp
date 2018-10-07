@@ -486,9 +486,9 @@ void CNPC_ShadowWalker::PlaySound(string_t soundname, bool required /*= false */
 {
 	if (required || gpGlobals->curtime > m_flNextSoundTime)
 	{
-		m_flNextSoundTime = gpGlobals->curtime + random->RandomFloat(1.0, 2.0);
-		CPASAttenuationFilter filter2(this, STRING(soundname));
-		EmitSound(filter2, entindex(), STRING(soundname));
+		m_flNextSoundTime = gpGlobals->curtime + random->RandomFloat(0.5, 1.0);
+		//CPASAttenuationFilter filter2(this, STRING(soundname));
+		EmitSound(STRING(soundname));
 	}
 }
 
