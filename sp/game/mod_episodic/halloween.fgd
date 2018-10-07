@@ -15,8 +15,9 @@
 //-------------------------------------------------------------------------
 @NPCClass base(BaseNPC) studioprop() = npc_shadow_walker : "Shadow Walker"
 [             
-	additionalequipment(choices) : "Weapons" : "weapon_crowbar" : "It is recommended that the Shadow Walker be equipped with a melee weapon such as the crowbar or stunstick. The shotgun and Annabelle also work surprisingly well, but firing patterns have not been set up for automatic weapons." =
+	additionalequipment(choices) : "Weapons" : "0" : "It is recommended that the Shadow Walker be equipped with a melee weapon such as the crowbar or stunstick. The shotgun and Annabelle also work surprisingly well, but firing patterns have not been set up for automatic weapons." =
 	[
+		"0"  : "Custom Melee Weapon"
 		"weapon_crowbar" : "Crow Bar"
 		"weapon_stunstick" : "Stun Stick"
 		"weapon_shotgun" : "Shotgun"
@@ -25,10 +26,10 @@
 		"weapon_ar2" : "AR2"
 		"weapon_smg1" : "SMG1"
 		"weapon_alyxgun" : "Alyx Gun"
-		"0"  : "Nothing"
 	]
 	
 	model(studio) : "World Model" : "models/monster/subject.mdl" : "You may specify any model for this NPC. However, the NPC was written with standard human animations in mind. Missing animations may cause errors. Be aware the animations of the model you choose will affect the NPC's behavior."
+	WeaponModel(studio) : "Weapon Model Override" : "models/props_canal/mattpipe.mdl" : "If the Shadow Walker is set to use 'Custom Melee Weapon', you may supply a world model to use. I would recommend using the pipe model, the crowbar model, or the stunstick model."
 	
 	Health(integer) : "Health" : 75 : "Starting health of the NPC."
 	
