@@ -1,25 +1,12 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
-// This is a skeleton file for use when creating a new 
-// NPC. Copy and rename this file for the new
-// NPC and add the copy to the build.
+//=//=============================================================================//
 //
-// Leave this file in the build until we ship! Allowing 
-// this file to be rebuilt with the rest of the game ensures
-// that it stays up to date with the rest of the NPC code.
+// Purpose: A frightening flying creature with the appearance of a burning skull.
+//		May be familiar to first person shooter fans.
 //
-// Replace occurances of CNPC_ShadowWalker with the new NPC's
-// classname. Don't forget the lower-case occurance in 
-// LINK_ENTITY_TO_CLASS()
+//		npc_lost_soul is a modified version of a manhack inspired by Mallikas'
+//		HalloweenVilleFour entry, Satanophobia, as well as Doom.
 //
-//
-// ASSUMPTIONS MADE:
-//
-// You're making a character based on CAI_BaseNPC. If this 
-// is not true, make sure you replace all occurances
-// of 'CAI_BaseNPC' in this file with the appropriate 
-// parent class.
-//
-// You're making a human-sized NPC that walks.
+//	Author: 1upD
 //
 //=============================================================================//
 #include "cbase.h"
@@ -60,37 +47,6 @@
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-
-//=========================================================
-// Private activities
-//=========================================================
-//int	ACT_MYCUSTOMACTIVITY = -1;
-
-//=========================================================
-// Custom schedules
-//=========================================================
-//enum
-//{
-//	SCHED_MYCUSTOMSCHEDULE = LAST_SHARED_SCHEDULE,
-//};
-
-//=========================================================
-// Custom tasks
-//=========================================================
-//enum 
-//{
-//	TASK_MYCUSTOMTASK = LAST_SHARED_TASK,
-//};
-
-
-//=========================================================
-// Custom Conditions
-//=========================================================
-//enum 
-//{
-//	COND_MYCUSTOMCONDITION = LAST_SHARED_CONDITION,
-//};
-
 
 ConVar	sk_lostsoul_health("sk_lostsoul_health", "0");
 ConVar	sk_lostsoul_melee_dmg("sk_lostsoul_melee_dmg", "0");
@@ -290,9 +246,8 @@ int CNPC_LostSoul::OnTakeDamage_Alive(const CTakeDamageInfo &info)
 //-----------------------------------------------------------------------------
 void CNPC_LostSoul::DeathSound(const CTakeDamageInfo &info)
 {
-	StopSound("NPC_Lost_Soul.Stunned");
-	CPASAttenuationFilter filter2(this, "NPC_Lost_Soul.Die");
-	EmitSound(filter2, entindex(), "NPC_Lost_Soul.Die");
+	CPASAttenuationFilter filter2(this, "NPC_LostSoul.Die");
+	EmitSound(filter2, entindex(), "NPC_LostSoul.Die");
 }
 
 //-----------------------------------------------------------------------------
@@ -337,7 +292,7 @@ void CNPC_LostSoul::PlayFlySound(void)
 	// Play special engine every once in a while
 	if (gpGlobals->curtime > m_flNextEngineSoundTime && flEnemyDist < 48)
 	{
-		m_flNextEngineSoundTime = gpGlobals->curtime + random->RandomFloat(3.0, 10.0);
+		m_flNextEngineSoundTime = gpGlobals->curtime + random->RandomFloat(0.5, 2.0);
 
 		EmitSound("NPC_LostSoul.Float");
 	}
@@ -479,34 +434,17 @@ void CNPC_LostSoul::MoveToTarget(float flInterval, const Vector &vMoveTarget)
 		myAccel = flDist / flInterval;
 	}
 
-	/*
-	// Boost vertical movement
-	if ( targetDir.z > 0 )
-	{
-	// Z acceleration is faster when we thrust upwards.
-	// This is to help keep manhacks out of water.
-	myZAccel *= 5.0;
-	}
-	*/
-
 	// Clamp vertical movement
 	if (myZAccel > flDist / flInterval)
 	{
 		myZAccel = flDist / flInterval;
 	}
 
-	// Scale by our engine force
-	//myAccel *= m_fEnginePowerScale;
-	//myZAccel *= m_fEnginePowerScale;
-
 	MoveInDirection(flInterval, targetDir, myAccel, myZAccel, myDecay);
 
 	// calc relative banking targets
 	Vector forward, right;
 	GetVectors(&forward, &right, NULL);
-	//m_vTargetBanking.x = 40 * DotProduct(forward, targetDir);
-	//m_vTargetBanking.z = 40 * DotProduct(right, targetDir);
-	//m_vTargetBanking.y = 0.0;
 }
 
 //-----------------------------------------------------------------------------
