@@ -60,12 +60,7 @@ public:
 
 	void			Activate();
 	void			FixupWeapon();
-
-	// Inputs
-	virtual void InputSetSpeed(inputdata_t &inputdata);
-	virtual void InputEnableOpenDoors(inputdata_t &inputdata);
-	virtual void InputDisableOpenDoors(inputdata_t &inputdata);
-
+	
 	DECLARE_DATADESC();
 
 	string_t m_iszWeaponModelName;			// Path/filename of model to override weapon model.
@@ -113,11 +108,7 @@ BEGIN_DATADESC(CNPC_ShadowWalker)
 	DEFINE_KEYFIELD(m_bCannotOpenDoors, FIELD_BOOLEAN, "CannotOpenDoors"),
 
 	DEFINE_FIELD(m_bWanderToggle, FIELD_BOOLEAN),
-	DEFINE_FIELD(m_flNextSoundTime, FIELD_TIME),
-
-	DEFINE_INPUTFUNC(FIELD_FLOAT, "SetSpeed", InputSetSpeed),
-	DEFINE_INPUTFUNC(FIELD_VOID, "EnableOpenDoors", InputEnableOpenDoors),
-	DEFINE_INPUTFUNC(FIELD_VOID, "DisableOpenDoors", InputDisableOpenDoors)
+	DEFINE_FIELD(m_flNextSoundTime, FIELD_TIME)
 END_DATADESC()
 
 //-----------------------------------------------------------------------------
@@ -574,38 +565,6 @@ void CNPC_ShadowWalker::PrecacheNPCSoundScript(string_t * SoundName, string_t de
 		*SoundName = defaultSoundName;
 	}
 	PrecacheScriptSound(STRING(*SoundName));
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to change the speed of the NPC
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputSetSpeed(inputdata_t &inputdata)
-{
-	this->m_flSpeed = inputdata.value.Float();
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to enable opening doors
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputEnableOpenDoors(inputdata_t &inputdata)
-{
-	m_bCannotOpenDoors = true;
-	if (!HasSpawnFlags(SF_NPC_START_EFFICIENT))
-	{
-		CapabilitiesAdd(bits_CAP_DOORS_GROUP);
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to enable opening doors
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputDisableOpenDoors(inputdata_t &inputdata)
-{
-	m_bCannotOpenDoors = false;
-	if (!HasSpawnFlags(SF_NPC_START_EFFICIENT))
-	{
-		CapabilitiesRemove(bits_CAP_DOORS_GROUP);
-	}
 }
 
 //-----------------------------------------------------------------------------
