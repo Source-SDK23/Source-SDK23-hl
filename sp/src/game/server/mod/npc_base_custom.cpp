@@ -294,7 +294,7 @@ bool CNPC_BaseCustomNPC::HasRangedWeapon()
 	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
 
 	if (pWeapon)
-		return !(FClassnameIs(pWeapon, "weapon_crowbar") || FClassnameIs(pWeapon, "weapon_stunstick"));
+		return !(FClassnameIs(pWeapon, "weapon_crowbar") || FClassnameIs(pWeapon, "weapon_stunstick") || FClassnameIs(pWeapon, "weapon_custommelee"));
 
 	return false;
 }
