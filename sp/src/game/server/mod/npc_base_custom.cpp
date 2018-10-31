@@ -31,6 +31,78 @@ const float MAX_TIME_NEXT_SOUND = 1.0f;
 const float MIN_TIME_NEXT_FOUNDENEMY_SOUND = 2.0f;
 const float MAX_TIME_NEXT_FOUNDENEMY_SOUND = 5.0f;
 
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
+BEGIN_DATADESC(CNPC_BaseCustomNPC)
+	DEFINE_KEYFIELD(m_iszWeaponModelName, FIELD_STRING, "WeaponModel"),
+	DEFINE_KEYFIELD(m_iHealth, FIELD_INTEGER, "Health"),
+	DEFINE_KEYFIELD(m_iszFearSound, FIELD_SOUNDNAME, "FearSound"),
+	DEFINE_KEYFIELD(m_iszDeathSound, FIELD_SOUNDNAME, "DeathSound"),
+	DEFINE_KEYFIELD(m_iszIdleSound, FIELD_SOUNDNAME, "IdleSound"),
+	DEFINE_KEYFIELD(m_iszPainSound, FIELD_SOUNDNAME, "PainSound"),
+	DEFINE_KEYFIELD(m_iszAlertSound, FIELD_SOUNDNAME, "AlertSound"),
+	DEFINE_KEYFIELD(m_iszLostEnemySound, FIELD_SOUNDNAME, "LostEnemySound"),
+	DEFINE_KEYFIELD(m_iszFoundEnemySound, FIELD_SOUNDNAME, "FoundEnemySound"),
+	DEFINE_KEYFIELD(m_bUseBothSquadSlots, FIELD_BOOLEAN, "UseBothSquadSlots"),
+	DEFINE_KEYFIELD(m_bCannotOpenDoors, FIELD_BOOLEAN, "CannotOpenDoors"),
+	DEFINE_KEYFIELD(m_bCanPickupWeapons, FIELD_BOOLEAN, "CanPickupWeapons"),
+
+	DEFINE_FIELD(m_bWanderToggle, FIELD_BOOLEAN),
+	DEFINE_FIELD(m_flNextSoundTime, FIELD_TIME),
+	DEFINE_FIELD(m_flNextFoundEnemySoundTime, FIELD_TIME),
+	DEFINE_FIELD(m_flSpeedModifier, FIELD_TIME),
+
+	DEFINE_INPUTFUNC(FIELD_FLOAT, "SetSpeedModifier", InputSetSpeedModifier),
+	DEFINE_INPUTFUNC(FIELD_VOID, "EnableOpenDoors", InputEnableOpenDoors),
+	DEFINE_INPUTFUNC(FIELD_VOID, "DisableOpenDoors", InputDisableOpenDoors),
+	DEFINE_INPUTFUNC(FIELD_VOID, "EnablePickupWeapons", InputEnablePickupWeapons),
+	DEFINE_INPUTFUNC(FIELD_VOID, "DisablePickupWeapons", InputDisablePickupWeapons)
+END_DATADESC()
+
+AI_BEGIN_CUSTOM_NPC(npc_base_custom, CNPC_BaseCustomNPC)
+//=========================================================
+// > Melee_Attack_NoInterrupt
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_MELEE_ATTACK_NOINTERRUPT,
+
+	"	Tasks"
+	"		TASK_STOP_MOVING		0"
+	"		TASK_FACE_ENEMY			0"
+	"		TASK_ANNOUNCE_ATTACK	1"	// 1 = primary attack
+	"		TASK_MELEE_ATTACK1		0"
+	""
+	"	Interrupts"
+	"		COND_ENEMY_DEAD"
+	"		COND_ENEMY_OCCLUDED"
+);
+
+//=========================================================
+// 	SCHED_HIDE
+//=========================================================
+DEFINE_SCHEDULE
+(
+	SCHED_HIDE,
+
+	"	Tasks"
+	"		TASK_SET_FAIL_SCHEDULE		SCHEDULE:SCHED_COMBAT_FACE"
+	"		TASK_STOP_MOVING			0"
+	"		TASK_FIND_COVER_FROM_ENEMY	0"
+	"		TASK_RUN_PATH				0"
+	"		TASK_WAIT_FOR_MOVEMENT		0"
+	"		TASK_REMEMBER				MEMORY:INCOVER"
+	"		TASK_FACE_ENEMY				0"
+	""
+	"	Interrupts"
+	"		COND_HEAR_DANGER"
+	"		COND_NEW_ENEMY"
+	"		COND_ENEMY_DEAD"
+);
+AI_END_CUSTOM_NPC()
+
+
 //-----------------------------------------------------------------------------
 // Purpose: 
 //

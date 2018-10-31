@@ -19,19 +19,22 @@
 #include "ai_squadslot.h"
 #include "weapon_custom_melee.h"
 
-
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-//-----------------------------------------------------------------------------
-// Purpose: Initialize the custom schedules
-// Input  :
-// Output :
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InitCustomSchedules(void)
-{
-	INIT_CUSTOM_AI(CNPC_ShadowWalker);
-}
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
+BEGIN_DATADESC(CNPC_ShadowWalker)
+/// Custom fields go here
+END_DATADESC()
+
+//---------------------------------------------------------
+// Custom AI
+//---------------------------------------------------------
+AI_BEGIN_CUSTOM_NPC(npc_shadow_walker, CNPC_ShadowWalker)
+// Custom schedules go here
+AI_END_CUSTOM_NPC()
 
 //-----------------------------------------------------------------------------
 // Purpose: 

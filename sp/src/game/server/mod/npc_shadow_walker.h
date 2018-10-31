@@ -17,9 +17,10 @@
 
 //=========================================================
 //=========================================================
-class CNPC_ShadowWalker : public CNPC_BaseCustomNPC
+class CNPC_ShadowWalker : public CAI_BlendingHost<CNPC_BaseCustomNPC>
 {
-	DECLARE_CLASS(CNPC_ShadowWalker, CNPC_BaseCustomNPC);
+	DECLARE_DATADESC();
+	DECLARE_CLASS(CNPC_ShadowWalker, CAI_BlendingHost<CNPC_BaseCustomNPC>);
 
 public:
 	void				Precache(void);
@@ -36,16 +37,7 @@ public:
 	void				Activate();
 	void				FixupWeapon();
 
-	DECLARE_DATADESC();
 	DEFINE_CUSTOM_AI;
 };
 
 LINK_ENTITY_TO_CLASS(npc_shadow_walker, CNPC_ShadowWalker);
-IMPLEMENT_CUSTOM_AI(npc_base_custom, CNPC_ShadowWalker);
-
-//---------------------------------------------------------
-// Save/Restore
-//---------------------------------------------------------
-BEGIN_DATADESC(CNPC_ShadowWalker)
-	/// Custom fields go here
-END_DATADESC()
