@@ -657,6 +657,8 @@ void CFlare::AddToActiveFlares( void )
 	}
 }
 
+#if 0
+
 IMPLEMENT_SERVERCLASS_ST(CFlaregun, DT_Flaregun)
 END_SEND_TABLE()
 
@@ -749,3 +751,5 @@ void CFlaregun::SecondaryAttack( void )
 
 	WeaponSound( SINGLE );
 }
+
+#endif
