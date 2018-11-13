@@ -187,30 +187,6 @@ int CNPC_ShadowWalker::SelectFailSchedule(int failedSchedule, int failedTask, AI
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Select a schedule to execute based on conditions. 
-// This is the most critical AI method.
-//-----------------------------------------------------------------------------
-int CNPC_ShadowWalker::SelectSchedule()
-{
-	switch (m_NPCState)
-	{
-	case NPC_STATE_IDLE:
-		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
-		return SelectIdleSchedule();
-
-	case NPC_STATE_ALERT:
-		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
-		return SelectAlertSchedule();
-
-	case NPC_STATE_COMBAT:
-		return SelectCombatSchedule();
-
-	default:
-		return BaseClass::SelectSchedule();
-	}
-}
-
-//-----------------------------------------------------------------------------
 // Idle schedule selection
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectIdleSchedule()
@@ -305,7 +281,6 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 		if (ChooseEnemy())
 		{
 			FoundEnemySound();
-
 			ClearCondition(COND_ENEMY_DEAD);
 			return SelectSchedule();
 		}
@@ -327,17 +302,20 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 
 	// If in a squad, only one or two shadow walkers can chase the player. This is configurable through Hammer.
 	bool bCanChase = true;
-	if (bEnemyCanSeeMe && m_bUseBothSquadSlots) {
-		bCanChase = OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2);
+	if (m_bUseBothSquadSlots) {
+		bCanChase = OccupyStrategySlotRange(SQUAD_SLOT_CHASE_1, SQUAD_SLOT_CHASE_2);
 	}
-	else if (bEnemyCanSeeMe){
-		bCanChase = OccupyStrategySlot(SQUAD_SLOT_ATTACK1);
+	else {
+		bCanChase = OccupyStrategySlot(SQUAD_SLOT_CHASE_1);
 	}
+
+	bCanChase = bCanChase || EnemyDistance(GetEnemy()) < 128;
 
 	// If I'm not allowed to chase this enemy of this enemy and he's looking at me, set up an ambush
 	if (!bCanChase)
 	{
 		FearSound();
+		SetState((NPC_STATE)NPC_STATE_AMBUSH);
 		return SCHED_HIDE;
 		
 	}

@@ -30,6 +30,28 @@ enum
 };
 
 //=========================================================
+// states
+//=========================================================
+enum
+{
+	NPC_STATE_FIRST = NPC_STATE_DEAD,
+	NPC_STATE_AMBUSH,
+	NPC_STATE_SURRENDER,
+	NPC_STATE_LAST_CUSTOM
+};
+
+// -----------------------------------------------
+//	Squad slots
+// -----------------------------------------------
+enum
+{
+	LAST_SQUADSLOT = 100,	// Custom NPCs might share a squad with any NPC, so let's just be safe and skip to a high number
+	SQUAD_SLOT_CHASE_1,
+	SQUAD_SLOT_CHASE_2,
+	LAST_CUSTOM_SQUADSLOT
+};
+
+//=========================================================
 //=========================================================
 typedef CAI_BlendingHost< CAI_BehaviorHost<CAI_BaseNPC> > CAI_CustomNPCBase;
 
@@ -48,9 +70,16 @@ public:
 	virtual int				SelectIdleSchedule();
 	virtual int				SelectAlertSchedule();
 	virtual int				SelectCombatSchedule();
+	virtual int				SelectAmbushSchedule();
+	virtual int				SelectSurrenderSchedule();
 	virtual float			GetSequenceGroundSpeed(CStudioHdr *pStudioHdr, int iSequence);
 	virtual Activity		NPC_TranslateActivity(Activity eNewActivity);
 	virtual int				TranslateSchedule(int scheduleType);
+
+	// Custom states
+	virtual NPC_STATE	SelectIdealState(void);
+	NPC_STATE			SelectAmbushIdealState();
+	NPC_STATE			SelectSurrenderIdealState();
 
 	// Sounds
 	virtual void		PlaySound(string_t soundname, bool optional);
@@ -90,7 +119,7 @@ protected:
 	bool		HasRangedWeapon();
 	void		PrecacheNPCSoundScript(string_t* SoundName, string_t defaultSoundName);
 
-
+	int			m_iNumSquadmates;
 	bool		m_bUseBothSquadSlots;	// If true use two squad slots, if false use one squad slot
 	bool		m_bCannotOpenDoors;		// If true, this NPC cannot open doors. The condition is reversed because originally it could.
 	bool		m_bCanPickupWeapons;			// If true, this NPC is able to pick up weapons off of the ground just like npc_citizen.

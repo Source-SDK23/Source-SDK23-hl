@@ -27,7 +27,6 @@ public:
 	void				Spawn(void);
 	Class_T				Classify(void);
 	virtual int			SelectFailSchedule(int failedSchedule, int failedTask, AI_TaskFailureCode_t taskFailCode);
-	virtual int 		SelectSchedule();
 	virtual int			SelectIdleSchedule();
 	virtual int			SelectAlertSchedule();
 	virtual int			SelectCombatSchedule();
