@@ -309,7 +309,7 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 		bCanChase = OccupyStrategySlot(SQUAD_SLOT_CHASE_1);
 	}
 
-	bCanChase = bCanChase || EnemyDistance(GetEnemy()) < 128;
+	bCanChase = bCanChase || EnemyDistance(GetEnemy()) < 128 || (bEnemyCanSeeMe && (HasCondition(COND_LIGHT_DAMAGE) || HasCondition(COND_HEAVY_DAMAGE)));
 
 	// If I'm not allowed to chase this enemy of this enemy and he's looking at me, set up an ambush
 	if (!bCanChase)
