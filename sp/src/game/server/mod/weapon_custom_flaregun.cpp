@@ -28,8 +28,10 @@
 // Custom convars for flaregun
 ConVar	flaregun_primary_velocity("sv_flaregun_primary_velocity", "1500");
 ConVar	flaregun_secondary_velocity("sv_flaregun_secondary_velocity", "500");
-ConVar	flaregun_duration_seconds("sv_flaregun_lifetime_seconds", "10");
+ConVar	flaregun_duration_seconds("sv_flaregun_lifetime_seconds", "30");
 ConVar	flaregun_stop_velocity("sv_flaregun_stop_velocity", "128");
+ConVar	flaregun_projectile_sticky("sv_flaregun_projectile_sticky", "0");
+ConVar	flaregun_dynamic_lights("sv_flaregun_dynamic_lights", "1");
 
 // Custom derived class for flare gun projectiles
 class CFlareGunProjectile : public CFlare
@@ -159,6 +161,7 @@ CFlareGunProjectile *CFlareGunProjectile::Create(Vector vecOrigin, QAngle vecAng
 	pFlare->Spawn();
 	pFlare->SetTouch(&CFlareGunProjectile::FlareGunProjectileTouch);
 	pFlare->SetThink(&CFlare::FlareThink);
+	pFlare->m_bLight = flaregun_dynamic_lights.GetBool();
 
 	//Start up the flare
 	pFlare->Start(lifetime);
@@ -219,8 +222,8 @@ void CFlareGunProjectile::FlareGunProjectileTouch(CBaseEntity *pOther)
 		trace_t tr;
 		tr = CBaseEntity::GetTouchTrace();
 
-		//Only do this on the first bounce
-		if (m_nBounces == 0)
+		//Only do this on the first bounce if the convar is set
+		if (flaregun_projectile_sticky.GetBool() && m_nBounces == 0)
 		{
 			const surfacedata_t *pdata = physprops->GetSurfaceData(tr.surface.surfaceProps);
 
