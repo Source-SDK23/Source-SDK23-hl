@@ -1290,9 +1290,13 @@ bool CClientShadowMgr::Init()
 
 	SetShadowBlobbyCutoffArea( 0.005 );
 
-	bool bTools = CommandLine()->CheckParm( "-tools" ) != NULL;
-	m_nMaxDepthTextureShadows = bTools ? 4 : 1;	// Just one shadow depth texture in games, more in tools
-
+	// Raise the max projected texture limit to 8
+	// https://developer.valvesoftware.com/wiki/Env_projectedtexture/fixes	
+	//bool bTools = CommandLine()->CheckParm( "-tools" ) != NULL;
+	//m_nMaxDepthTextureShadows = bTools ? 4 : 1;	// Just one shadow depth texture in games, more in tools
+	m_nMaxDepthTextureShadows = 8; //with your number
+	
+	
 	bool bLowEnd = ( g_pMaterialSystemHardwareConfig->GetDXSupportLevel() < 80 );
 
 	if ( !bLowEnd && r_shadowrendertotexture.GetBool() )
