@@ -167,7 +167,7 @@ private:
 	float	m_flSuperFastAttackTime;
 	float   m_flGrenadePullTime;
 	
-	int		m_iGrenadeCount;
+	int		m_iGrenadeCount = ZOMBINE_MAX_GRENADES;
 
 	EHANDLE	m_hGrenade;
 
@@ -184,7 +184,7 @@ BEGIN_DATADESC( CNPC_Zombine )
 	DEFINE_FIELD( m_flSuperFastAttackTime, FIELD_TIME ),
 	DEFINE_FIELD( m_hGrenade, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_flGrenadePullTime, FIELD_TIME ),
-	DEFINE_FIELD( m_iGrenadeCount, FIELD_INTEGER ),
+	DEFINE_KEYFIELD( m_iGrenadeCount, FIELD_INTEGER, "NumGrenades" ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"StartSprint", InputStartSprint ),
 	DEFINE_INPUTFUNC( FIELD_VOID,	"PullGrenade", InputPullGrenade ),
 END_DATADESC()
@@ -225,8 +225,6 @@ void CNPC_Zombine::Spawn( void )
 
 	g_flZombineGrenadeTimes = gpGlobals->curtime;
 	m_flGrenadePullTime = gpGlobals->curtime;
-
-	m_iGrenadeCount = ZOMBINE_MAX_GRENADES;
 }
 
 void CNPC_Zombine::Precache( void )
