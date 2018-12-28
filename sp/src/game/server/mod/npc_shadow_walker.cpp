@@ -13,25 +13,28 @@
 #include "cbase.h"
 #include "npc_shadow_walker.h"
 #include "ai_hull.h"
-#include "soundent.h"
 #include "game.h"
 #include "npcevent.h"
-#include "engine/IEngineSound.h"
 #include "basehlcombatweapon_shared.h"
 #include "ai_squadslot.h"
 #include "weapon_custom_melee.h"
-
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 //---------------------------------------------------------
-// Constants
+// Save/Restore
 //---------------------------------------------------------
-const float MIN_TIME_NEXT_SOUND = 0.5f;
-const float MAX_TIME_NEXT_SOUND = 1.0f;
-const float MIN_TIME_NEXT_FOUNDENEMY_SOUND = 2.0f;
-const float MAX_TIME_NEXT_FOUNDENEMY_SOUND = 5.0f;
+BEGIN_DATADESC(CNPC_ShadowWalker)
+/// Custom fields go here
+END_DATADESC()
+
+//---------------------------------------------------------
+// Custom AI
+//---------------------------------------------------------
+AI_BEGIN_CUSTOM_NPC(npc_shadow_walker, CNPC_ShadowWalker)
+// Custom schedules go here
+AI_END_CUSTOM_NPC()
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -184,65 +187,6 @@ int CNPC_ShadowWalker::SelectFailSchedule(int failedSchedule, int failedTask, AI
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Select a schedule to retrieve better weapons if they are available.
-//-----------------------------------------------------------------------------
-int CNPC_ShadowWalker::SelectScheduleRetrieveItem()
-{
-	if (m_bCanPickupWeapons && HasCondition(COND_BETTER_WEAPON_AVAILABLE))
-	{
-		CBaseHLCombatWeapon *pWeapon = dynamic_cast<CBaseHLCombatWeapon *>(Weapon_FindUsable(WEAPON_SEARCH_DELTA));
-		if (pWeapon)
-		{
-			m_flNextWeaponSearchTime = gpGlobals->curtime + 10.0;
-			// Now lock the weapon for several seconds while we go to pick it up.
-			pWeapon->Lock(10.0, this);
-			SetTarget(pWeapon);
-			return SCHED_NEW_WEAPON;
-		}
-	}
-
-	return SCHED_NONE;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Select a schedule to retrieve better weapons if they are available.
-//-----------------------------------------------------------------------------
-int CNPC_ShadowWalker::SelectScheduleWander()
-{
-	m_bWanderToggle = !m_bWanderToggle;
-	if (m_bWanderToggle) {
-		return SCHED_IDLE_WANDER;
-	}
-	else {
-		return SCHED_NONE;
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Select a schedule to execute based on conditions. 
-// This is the most critical AI method.
-//-----------------------------------------------------------------------------
-int CNPC_ShadowWalker::SelectSchedule()
-{
-	switch (m_NPCState)
-	{
-	case NPC_STATE_IDLE:
-		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
-		return SelectIdleSchedule();
-
-	case NPC_STATE_ALERT:
-		AssertMsgOnce(GetEnemy() == NULL, "NPC has enemy but is not in combat state?");
-		return SelectAlertSchedule();
-
-	case NPC_STATE_COMBAT:
-		return SelectCombatSchedule();
-
-	default:
-		return BaseClass::SelectSchedule();
-	}
-}
-
-//-----------------------------------------------------------------------------
 // Idle schedule selection
 //-----------------------------------------------------------------------------
 int CNPC_ShadowWalker::SelectIdleSchedule()
@@ -337,7 +281,6 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 		if (ChooseEnemy())
 		{
 			FoundEnemySound();
-
 			ClearCondition(COND_ENEMY_DEAD);
 			return SelectSchedule();
 		}
@@ -359,17 +302,20 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 
 	// If in a squad, only one or two shadow walkers can chase the player. This is configurable through Hammer.
 	bool bCanChase = true;
-	if (bEnemyCanSeeMe && m_bUseBothSquadSlots) {
-		bCanChase = OccupyStrategySlotRange(SQUAD_SLOT_ATTACK1, SQUAD_SLOT_ATTACK2);
+	if (m_bUseBothSquadSlots) {
+		bCanChase = OccupyStrategySlotRange(SQUAD_SLOT_CHASE_1, SQUAD_SLOT_CHASE_2);
 	}
-	else if (bEnemyCanSeeMe){
-		bCanChase = OccupyStrategySlot(SQUAD_SLOT_ATTACK1);
+	else {
+		bCanChase = OccupyStrategySlot(SQUAD_SLOT_CHASE_1);
 	}
+
+	bCanChase = bCanChase || EnemyDistance(GetEnemy()) < 128 || (bEnemyCanSeeMe && (HasCondition(COND_LIGHT_DAMAGE) || HasCondition(COND_HEAVY_DAMAGE)));
 
 	// If I'm not allowed to chase this enemy of this enemy and he's looking at me, set up an ambush
 	if (!bCanChase)
 	{
 		FearSound();
+		SetState((NPC_STATE)NPC_STATE_AMBUSH);
 		return SCHED_HIDE;
 		
 	}
@@ -433,16 +379,6 @@ int CNPC_ShadowWalker::SelectCombatSchedule()
 	return SCHED_FAIL;
 }
 
-bool CNPC_ShadowWalker::HasRangedWeapon()
-{
-	CBaseCombatWeapon *pWeapon = GetActiveWeapon();
-
-	if (pWeapon)
-		return !(FClassnameIs(pWeapon, "weapon_crowbar") || FClassnameIs(pWeapon, "weapon_stunstick") || FClassnameIs(pWeapon, "weapon_custommelee"));
-
-	return false;
-}
-
 //-----------------------------------------------------------------------------
 // Purpose: Override base class schedules
 //-----------------------------------------------------------------------------
@@ -480,111 +416,6 @@ Activity CNPC_ShadowWalker::NPC_TranslateActivity(Activity activity)
 	default:
 		return BaseClass::NPC_TranslateActivity(activity);
 	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Play sound when an enemy is spotted. This sound has a separate
-//	timer from other sounds to prevent looping if the NPC gets caught
-//	in a 'found enemy' condition.
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::FoundEnemySound(void)
-{
-	if (gpGlobals->curtime > m_flNextFoundEnemySoundTime)
-	{
-		m_flNextFoundEnemySoundTime = gpGlobals->curtime + random->RandomFloat(MIN_TIME_NEXT_FOUNDENEMY_SOUND, MAX_TIME_NEXT_FOUNDENEMY_SOUND);
-		PlaySound(m_iszFoundEnemySound, true);
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Play NPC soundscript
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::PlaySound(string_t soundname, bool required /*= false */)
-{
-	// TODO: Check if silent
-	if (required || gpGlobals->curtime > m_flNextSoundTime)
-	{
-		m_flNextSoundTime = gpGlobals->curtime + random->RandomFloat(MIN_TIME_NEXT_SOUND, MAX_TIME_NEXT_SOUND);
-		//CPASAttenuationFilter filter2(this, STRING(soundname));
-		EmitSound(STRING(soundname));
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Assign a default soundscript if none is provided, then precache
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::PrecacheNPCSoundScript(string_t * SoundName, string_t defaultSoundName) 
-{
-	if (!SoundName) {
-		*SoundName = defaultSoundName;
-	}
-	PrecacheScriptSound(STRING(*SoundName));
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Get movement speed, multipled by modifier
-//-----------------------------------------------------------------------------
-float CNPC_ShadowWalker::GetSequenceGroundSpeed(CStudioHdr *pStudioHdr, int iSequence)
-{
-	float t = SequenceDuration(pStudioHdr, iSequence);
-
-	if (t > 0)
-	{
-		return (GetSequenceMoveDist(pStudioHdr, iSequence) * m_flSpeedModifier / t);
-	}
-	else
-	{
-		return 0;
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to change the speed of the NPC
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputSetSpeedModifier(inputdata_t &inputdata)
-{
-	this->m_flSpeedModifier = inputdata.value.Float();
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to enable opening doors
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputEnableOpenDoors(inputdata_t &inputdata)
-{
-	m_bCannotOpenDoors = false;
-	if (!HasSpawnFlags(SF_NPC_START_EFFICIENT))
-	{
-		CapabilitiesAdd(bits_CAP_DOORS_GROUP);
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to enable opening doors
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputDisableOpenDoors(inputdata_t &inputdata)
-{
-	m_bCannotOpenDoors = true;
-	if (!HasSpawnFlags(SF_NPC_START_EFFICIENT))
-	{
-		CapabilitiesRemove(bits_CAP_DOORS_GROUP);
-	}
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to enable weapon pickup behavior
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputEnablePickupWeapons(inputdata_t &inputdata)
-{
-	m_bCanPickupWeapons = true;
-}
-
-//-----------------------------------------------------------------------------
-// Purpose: Hammer input to enable weapon pickup behavior
-//-----------------------------------------------------------------------------
-void CNPC_ShadowWalker::InputDisablePickupWeapons(inputdata_t &inputdata)
-{
-	m_bCanPickupWeapons = false;
 }
 
 //-----------------------------------------------------------------------------
