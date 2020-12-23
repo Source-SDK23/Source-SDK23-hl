@@ -4625,7 +4625,8 @@ void CLogicPlayerProxy::Activate( void )
 
 	if ( m_hPlayer == NULL )
 	{
-		m_hPlayer = AI_GetSinglePlayer();
+		//SecobMod__MiscFixes
+		m_hPlayer = UTIL_GetLocalPlayer(); 
 	}
 }
 

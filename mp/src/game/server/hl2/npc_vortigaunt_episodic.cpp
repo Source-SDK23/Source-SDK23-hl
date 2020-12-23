@@ -442,7 +442,12 @@ void CNPC_Vortigaunt::RunTask( const Task_t *pTask )
 	case TASK_VORTIGAUNT_WAIT_FOR_PLAYER:
 	{
 		// Wait for the player to get near (before starting the bugbait sequence)
-		CBasePlayer *pPlayer = AI_GetSinglePlayer();
+		#ifdef SecobMod__Enable_Fixed_Multiplayer_AI
+			CBasePlayer *pPlayer = UTIL_GetNearestPlayer(GetAbsOrigin()); 
+		#else
+			CBasePlayer *pPlayer = AI_GetSinglePlayer();
+		#endif //SecobMod__Enable_Fixed_Multiplayer_AI
+
 		if ( pPlayer != NULL )
 		{
 			GetMotor()->SetIdealYawToTargetAndUpdate( pPlayer->GetAbsOrigin(), AI_KEEP_YAW_SPEED );
@@ -661,8 +666,12 @@ int CNPC_Vortigaunt::RangeAttack1Conditions( float flDot, float flDist )
 		// See if it's too close to me
 		if ( ( GetAbsOrigin() - GetEnemy()->GetAbsOrigin() ).LengthSqr() < Square( AntlionWorkerBurstRadius() ) )
 			return COND_TOO_CLOSE_TO_ATTACK;
+		#ifdef SecobMod__Enable_Fixed_Multiplayer_AI
+			CBasePlayer *pPlayer = UTIL_GetNearestPlayer(GetEnemy()->GetAbsOrigin()); 
+		#else
+			CBasePlayer *pPlayer = AI_GetSinglePlayer();
+		#endif //SecobMod__Enable_Fixed_Multiplayer_AI
 
-		CBasePlayer *pPlayer = AI_GetSinglePlayer();
 		if ( pPlayer && ( pPlayer->GetAbsOrigin() - GetEnemy()->GetAbsOrigin() ).LengthSqr() < Square( AntlionWorkerBurstRadius() ) )
 		{
 			// Warn the player to get away!
@@ -919,7 +928,12 @@ void CNPC_Vortigaunt::HandleAnimEvent( animevent_t *pEvent )
 				// HACK: If we've still failed, just spawn it on the player 
 				if ( i == iNumAttempts )
 				{
-					CBasePlayer	*pPlayer = AI_GetSinglePlayer();
+				#ifdef SecobMod__Enable_Fixed_Multiplayer_AI
+					CBasePlayer	*pPlayer = UTIL_GetNearestPlayer(GetAbsOrigin()); 
+				#else
+				CBasePlayer	*pPlayer = AI_GetSinglePlayer();
+				#endif //SecobMod__Enable_Fixed_Multiplayer_AI
+
 					if ( pPlayer )
 					{
 						vecSpawnOrigin = pPlayer->WorldSpaceCenter();
@@ -1708,7 +1722,12 @@ void CNPC_Vortigaunt::MaintainHealSchedule( void )
 		return;
 
 	// For now, we only heal the player
-	CBasePlayer *pPlayer = AI_GetSinglePlayer();
+	#ifdef SecobMod__Enable_Fixed_Multiplayer_AI
+		CBasePlayer *pPlayer = UTIL_GetNearestPlayer(GetAbsOrigin()); 
+	#else
+		CBasePlayer *pPlayer = AI_GetSinglePlayer();
+	#endif //SecobMod__Enable_Fixed_Multiplayer_AI
+
 	if ( pPlayer == NULL )
 		return;
 
@@ -2365,7 +2384,12 @@ Disposition_t CNPC_Vortigaunt::IRelationType( CBaseEntity *pTarget )
 bool CNPC_Vortigaunt::HealGestureHasLOS( void )
 {
 	//For now the player is always our target
-	CBaseEntity *pTargetEnt = AI_GetSinglePlayer();
+	#ifdef SecobMod__Enable_Fixed_Multiplayer_AI
+		CBaseEntity *pTargetEnt = UTIL_GetNearestVisiblePlayer(this); 
+	#else
+		CBaseEntity *pTargetEnt = AI_GetSinglePlayer();
+	#endif //SecobMod__Enable_Fixed_Multiplayer_AI
+
 	if ( pTargetEnt == NULL )
 		return false;
 
