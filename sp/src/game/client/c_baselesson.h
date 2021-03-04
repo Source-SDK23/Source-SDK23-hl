@@ -117,6 +117,10 @@ public:
 	const char *GetGroup() { return m_szLessonGroup.String(); }
 	void	SetEnabled( bool bEnabled ) { m_bDisabled = !bEnabled; }
 
+#ifdef MAPBASE
+	DECLARE_DATADESC();
+#endif
+
 protected:
 	void MarkSucceeded( void );
 	void CloseOpportunity( const char *pchReason );
@@ -191,6 +195,9 @@ class CTextLesson : public CBaseLesson
 {
 public:
 	DECLARE_LESSON( CTextLesson, CBaseLesson );
+#ifdef MAPBASE
+	DECLARE_DATADESC();
+#endif
 
 	void Init( void );	// NOT virtual, each constructor calls their own
 	virtual void Start( void );
@@ -209,6 +216,9 @@ class CIconLesson : public CTextLesson
 {
 public:
 	DECLARE_LESSON( CIconLesson, CTextLesson );
+#ifdef MAPBASE
+	DECLARE_DATADESC();
+#endif
 
 	void Init( void ); 	// NOT virtual, each constructor calls their own
 	virtual void Start( void );
@@ -376,6 +386,9 @@ class CScriptedIconLesson : public CIconLesson
 {
 public:
 	DECLARE_LESSON( CScriptedIconLesson, CIconLesson )
+#ifdef MAPBASE
+	DECLARE_DATADESC();
+#endif
 
 	virtual ~CScriptedIconLesson( void );
 

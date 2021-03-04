@@ -72,6 +72,11 @@ public:
 	// Mapbase needs this to be public for map-specific file system
 	void ReadLessonsFromFile( const char *pchFileName );
 
+#ifdef MAPBASE
+	void WriteOpportunityState( ISave *pSave );
+	void ReadOpportunityState( IRestore *pRestore );
+#endif
+
 private:
 	void FindErrors( void );
 
@@ -113,6 +118,11 @@ C_GameInstructor &GetGameInstructor();
 
 void GameInstructor_Init();
 void GameInstructor_Shutdown();
+
+#ifdef MAPBASE
+class ISaveRestoreBlockHandler;
+ISaveRestoreBlockHandler *GetGameInstructorSaveRestoreBlockHandler();
+#endif
 
 
 #endif // _C_GAMEINSTRUCTOR_H_

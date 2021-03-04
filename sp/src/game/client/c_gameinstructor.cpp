@@ -13,6 +13,9 @@
 #include "ixboxsystem.h"
 #include "tier0/icommandline.h"
 #include "iclientmode.h"
+#ifdef MAPBASE
+#include "isaverestore.h"
+#endif
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -1290,6 +1293,290 @@ void C_GameInstructor::InitLessonPrerequisites()
 	for ( int i = 0; i < m_Lessons.Count(); ++i )
 		m_Lessons[ i ]->InitPrerequisites();
 }
+
+#ifdef MAPBASE
+//=========================================================
+// Save/Restore
+//=========================================================
+
+class CInstructorSymbolDataOps : public CDefSaveRestoreOps
+{
+public:
+	CInstructorSymbolDataOps() {}
+
+	virtual void Save( const SaveRestoreFieldInfo_t &fieldInfo, ISave *pSave )
+	{
+		CGameInstructorSymbol *sym = ((CGameInstructorSymbol *)fieldInfo.pField);
+		
+		pSave->WriteString( sym->String() );
+	}
+	
+	virtual void Restore( const SaveRestoreFieldInfo_t &fieldInfo, IRestore *pRestore )
+	{
+		CGameInstructorSymbol *sym = ((CGameInstructorSymbol *)fieldInfo.pField);
+
+		char tmp[1024];
+		pRestore->ReadString( tmp, sizeof(tmp), 0 );
+		*sym = tmp;
+	}
+	
+	virtual void MakeEmpty( const SaveRestoreFieldInfo_t &fieldInfo )
+	{
+		CGameInstructorSymbol *sym = ((CGameInstructorSymbol *)fieldInfo.pField);
+		*sym = CGameInstructorSymbol();
+	}
+
+	virtual bool IsEmpty( const SaveRestoreFieldInfo_t &fieldInfo )
+	{
+		CGameInstructorSymbol *sym = ((CGameInstructorSymbol *)fieldInfo.pField);
+		return (*sym) == CGameInstructorSymbol() ? true : false;
+	}
+	
+};
+
+static CInstructorSymbolDataOps g_InstructorSymbolDataOps;
+
+BEGIN_DATADESC_NO_BASE( CBaseLesson )
+
+	DEFINE_FIELD( m_iInstanceType, FIELD_INTEGER ),
+
+	DEFINE_FIELD( m_iPriority, FIELD_INTEGER ),
+	DEFINE_CUSTOM_FIELD( m_stringReplaceKey, &g_InstructorSymbolDataOps ),
+	DEFINE_FIELD( m_iFixedInstancesMax, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bReplaceOnlyWhenStopped, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_iTeam, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bOnlyKeyboard, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bOnlyGamepad, FIELD_BOOLEAN ),
+
+	DEFINE_FIELD( m_bWasDisplayed, FIELD_BOOLEAN ),
+
+	DEFINE_FIELD( m_fLockDuration, FIELD_INTEGER ),
+	DEFINE_FIELD( m_fTimeout, FIELD_INTEGER ),
+	DEFINE_FIELD( m_fInitTime, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fStartTime, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fLockTime, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fUpdateInterval, FIELD_FLOAT ),
+	DEFINE_FIELD( m_iInstanceType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bHasPlayedSound, FIELD_BOOLEAN ),
+
+	DEFINE_CUSTOM_FIELD( m_szStartSound, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szLessonGroup, &g_InstructorSymbolDataOps ),
+
+	DEFINE_FIELD( m_bCanOpenWhenDead, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bBumpWithTimeoutWhenLearned, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bCanTimeoutWhileInactive, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bDisabled, FIELD_BOOLEAN ),
+
+END_DATADESC()
+
+BEGIN_DATADESC( CScriptedIconLesson )
+
+	// Macro fields
+	DEFINE_FIELD( m_hEntity1, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_hEntity2, FIELD_EHANDLE ),
+	DEFINE_CUSTOM_FIELD( m_szString1, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szString2, &g_InstructorSymbolDataOps ),
+	DEFINE_FIELD( m_iInteger1, FIELD_INTEGER ),
+	DEFINE_FIELD( m_iInteger2, FIELD_INTEGER ),
+	DEFINE_FIELD( m_fFloat1, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fFloat2, FIELD_FLOAT ),
+
+END_DATADESC()
+
+BEGIN_DATADESC( CTextLesson )
+
+	DEFINE_CUSTOM_FIELD( m_szDisplayText, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szDisplayParamText, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szBinding, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szGamepadBinding, &g_InstructorSymbolDataOps ),
+
+END_DATADESC()
+
+BEGIN_DATADESC( CIconLesson )
+
+	DEFINE_FIELD( m_hLocatorTarget, FIELD_INTEGER ),
+	//DEFINE_FIELD( m_fCurrentDistance, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fOnScreenStartTime, FIELD_FLOAT ),
+	//DEFINE_FIELD( m_fUpdateDistanceTime, FIELD_FLOAT ),
+
+	// Macro fields
+	DEFINE_FIELD( m_hIconTarget, FIELD_EHANDLE ),
+	DEFINE_CUSTOM_FIELD( m_szVguiTargetName, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szVguiTargetLookup, &g_InstructorSymbolDataOps ),
+	DEFINE_FIELD( m_nVguiTargetEdge, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flUpOffset, FIELD_FLOAT ),
+	DEFINE_FIELD( m_flRelativeUpOffset, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fFixedPositionX, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fFixedPositionY, FIELD_FLOAT ),
+
+	DEFINE_FIELD( m_iFlags, FIELD_INTEGER ),
+
+	DEFINE_FIELD( m_fRange, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fCurrentDistance, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fOnScreenStartTime, FIELD_FLOAT ),
+	DEFINE_FIELD( m_fUpdateDistanceTime, FIELD_FLOAT ),
+
+	DEFINE_CUSTOM_FIELD( m_szOnscreenIcon, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szOffscreenIcon, &g_InstructorSymbolDataOps ),
+	DEFINE_CUSTOM_FIELD( m_szCaptionColor, &g_InstructorSymbolDataOps ),
+
+	DEFINE_FIELD( m_bFixedPosition, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bNoIconTarget, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bAllowNodrawTarget, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bVisible, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bShowWhenOccluded, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bNoOffscreen, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_bForceCaption, FIELD_BOOLEAN ),
+
+	DEFINE_FIELD( m_iIconTargetPos, FIELD_INTEGER ),
+	DEFINE_CUSTOM_FIELD( m_szHudHint, &g_InstructorSymbolDataOps ),
+
+END_DATADESC()
+
+void C_GameInstructor::WriteOpportunityState( ISave *pSave )
+{
+	int iNumOpportunities = m_OpenOpportunities.Count();
+	pSave->WriteInt( &iNumOpportunities );
+	for ( int i = iNumOpportunities - 1; i >= 0; --i )
+	{
+		CBaseLesson *pLesson = m_OpenOpportunities[ i ];
+		CBaseLesson *pRootLesson = pLesson->GetRoot();
+
+		// Write the lesson name
+		pSave->WriteString( pLesson->GetName() );
+
+		// Write the lesson data
+		pSave->WriteAll( pLesson, pLesson->GetDataDescMap() );
+
+		if (pRootLesson)
+		{
+			// Write the root lesson name
+			pSave->WriteString( pRootLesson->GetName() );
+		}
+		else
+		{
+			// No root lesson...?
+			pSave->WriteString( "" );
+		}
+
+		ConColorMsg( CBaseLesson::m_rgbaVerboseOpen, "\t%s\n", pLesson->GetName() );
+	}
+}
+
+void C_GameInstructor::ReadOpportunityState( IRestore *pRestore )
+{
+	int iNumOpportunities = pRestore->ReadInt();
+	for ( int i = iNumOpportunities; i >= 0; --i )
+	{
+		char szLessonName[ 256 ];
+		pRestore->ReadString( szLessonName, sizeof(szLessonName), 0 );
+		CBaseLesson *pLesson = GetLesson_Internal( szLessonName );
+
+		if (pLesson)
+		{
+			// Read the lesson data
+			pRestore->ReadAll( pLesson, pLesson->GetDataDescMap() );
+
+			// Read root lesson
+			pRestore->ReadString( szLessonName, sizeof(szLessonName), 0 );
+			if (szLessonName[0] != '\0')
+			{
+				CBaseLesson *pRootLesson = GetLesson_Internal( szLessonName );
+				if (pRootLesson)
+					pLesson->SetRoot( pRootLesson );
+			}
+
+			m_OpenOpportunities.AddToTail( pLesson );
+
+			pLesson->Start();
+
+			ConColorMsg( CBaseLesson::m_rgbaVerboseOpen, "\t%s\n", pLesson->GetName() );
+		}
+		else
+		{
+			Warning( "Can't find restored lesson %s\n", szLessonName );
+		}
+	}
+}
+
+void WriteOpportunityState( ISave *pSave );
+void ReadOpportunityState( IRestore *pRestore );
+
+static short GAME_INSTRUCTOR_SAVE_RESTORE_VERSION = 1;
+
+//-----------------------------------------------------------------------------
+
+class CGameInstructorSaveRestoreBlockHandler : public CDefSaveRestoreBlockHandler
+{
+public:
+	CGameInstructorSaveRestoreBlockHandler()
+	{
+	}
+	const char *GetBlockName()
+	{
+		return "GameInstructor";
+	}
+
+	//---------------------------------
+
+	void Save( ISave *pSave )
+	{
+		pSave->StartBlock();
+
+		g_GameInstructor.WriteOpportunityState( pSave );
+
+		pSave->EndBlock();
+	}
+
+	//---------------------------------
+
+	void WriteSaveHeaders( ISave *pSave )
+	{
+		pSave->WriteShort( &GAME_INSTRUCTOR_SAVE_RESTORE_VERSION );
+	}
+
+	//---------------------------------
+
+	void ReadRestoreHeaders( IRestore *pRestore )
+	{
+		// No reason why any future version shouldn't try to retain backward compatability. The default here is to not do so.
+		short version;
+		pRestore->ReadShort( &version );
+		m_fDoLoad = ( version == GAME_INSTRUCTOR_SAVE_RESTORE_VERSION );
+	}
+
+	//---------------------------------
+
+	void Restore( IRestore *pRestore, bool createPlayers )
+	{
+		if ( !m_fDoLoad )
+		{
+			return;
+		}
+
+		pRestore->StartBlock();
+
+		g_GameInstructor.ReadOpportunityState( pRestore );
+
+		pRestore->EndBlock();
+	}
+
+private:
+	bool m_fDoLoad;
+};
+
+//-----------------------------------------------------------------------------
+
+CGameInstructorSaveRestoreBlockHandler g_GameInstructorSaveRestoreBlockHandler;
+
+//-------------------------------------
+
+ISaveRestoreBlockHandler *GetGameInstructorSaveRestoreBlockHandler()
+{
+	return &g_GameInstructorSaveRestoreBlockHandler;
+}
+
+#endif
 
 //=========================================================
 // Commands

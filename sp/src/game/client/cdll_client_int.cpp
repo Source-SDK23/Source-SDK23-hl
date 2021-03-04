@@ -147,6 +147,10 @@
 #include "fbxsystem/fbxsystem.h"
 #endif
 
+#ifdef MAPBASE
+#include "c_gameinstructor.h"
+#endif
+
 #ifdef MAPBASE_VSCRIPT
 #include "vscript_client.h"
 #endif
@@ -1108,6 +1112,9 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetEntitySaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetPhysSaveRestoreBlockHandler() );
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetViewEffectsRestoreBlockHandler() );
+#ifdef MAPBASE
+	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetGameInstructorSaveRestoreBlockHandler() );
+#endif
 #ifdef MAPBASE_VSCRIPT
 	g_pGameSaveRestoreBlockSet->AddBlockHandler( GetVScriptSaveRestoreBlockHandler() );
 #endif
