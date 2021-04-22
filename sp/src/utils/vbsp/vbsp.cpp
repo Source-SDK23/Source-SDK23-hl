@@ -1397,9 +1397,20 @@ int RunVBSP( int argc, char **argv )
 #ifdef MAPBASE_VSCRIPT
 	if (g_iScripting)
 	{
-		scriptmanager = (IScriptManager*)Sys_GetFactoryThis()(VSCRIPT_INTERFACE_VERSION, NULL);
+		static CSysModule *pVScriptModule = NULL;
+		CreateInterfaceFn vscriptFactory = NULL;
+		if ( !pVScriptModule )
+		{
+			pVScriptModule = g_pFullFileSystem->LoadModule( "vscript_mapbase.dll" );
+			vscriptFactory = Sys_GetFactory( pVScriptModule );
+		}
+		
+		if (vscriptFactory)
+		{
+			scriptmanager = (IScriptManager*)vscriptFactory( VSCRIPT_INTERFACE_VERSION, NULL );
 
-		VScriptVBSPInit();
+			VScriptVBSPInit();
+		}
 	}
 #endif
 	

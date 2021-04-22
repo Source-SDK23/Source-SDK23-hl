@@ -83,7 +83,7 @@ $Project
 
 	$Folder	"Link Libraries"
 	{
-		$Lib	"vscript" [$MAPBASE_VSCRIPT]
+		$ImpLib	"vscript_mapbase" [$MAPBASE_VSCRIPT]
 		$Lib	"raytrace"
 	}
 }

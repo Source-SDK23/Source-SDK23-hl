@@ -459,6 +459,9 @@ public:
 	{
 		AddAppSystem( "soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION );
 		AddAppSystem( "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION );
+#ifdef MAPBASE
+		AddAppSystem( "vscript_mapbase" DLL_EXT_STRING, VSCRIPT_INTERFACE_VERSION );
+#endif
 	}
 
 	virtual int	Count()
@@ -971,10 +974,18 @@ int CHLClient::Init( CreateInterfaceFn appSystemFactory, CreateInterfaceFn physi
 	{
 		scriptmanager = (IScriptManager *)appSystemFactory( VSCRIPT_INTERFACE_VERSION, NULL );
 
+		if (scriptmanager == NULL)
+		{
+			Error( "Can't load script manager" );
+			return false;
+		}
+
+		/*
 		if (scriptmanager == nullptr)
 		{
 			scriptmanager = (IScriptManager*)Sys_GetFactoryThis()(VSCRIPT_INTERFACE_VERSION, NULL);
 		}
+		*/
 	}
 
 #ifdef WORKSHOP_IMPORT_ENABLED

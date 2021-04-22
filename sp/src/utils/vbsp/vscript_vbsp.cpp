@@ -40,8 +40,8 @@ extern ScriptClassDesc_t * GetScriptDesc( CBaseEntity * );
 #endif // VMPROFILE
 
 // This is to ensure a dependency exists between the vscript library and the game DLLs
-extern int vscript_token;
-int vscript_token_hack = vscript_token;
+//extern int vscript_token;
+//int vscript_token_hack = vscript_token;
 
 HSCRIPT VScriptCompileScript( const char *pszScriptName, bool bWarnMissing )
 {

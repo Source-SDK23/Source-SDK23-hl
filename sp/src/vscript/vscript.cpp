@@ -18,6 +18,9 @@ IScriptVM* makeSquirrelVM();
 
 int vscript_token = 0;
 
+// HACKHACK: The last-created script VM (for accessing VM from bound functions)
+IScriptVM	*g_pScriptVM;
+
 class CScriptManager : public CTier1AppSystem<IScriptManager>
 {
 public:
@@ -46,6 +49,8 @@ public:
 
 		// Register base bindings for all VMs
 		RegisterBaseBindings( pScriptVM );
+
+		g_pScriptVM = pScriptVM;
 
 		return pScriptVM;
 	}

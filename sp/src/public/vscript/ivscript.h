@@ -1643,6 +1643,10 @@ struct ScriptHook_t
 		return false;
 	}
 };
+
+// TEMP LOCATION
+extern template VSCRIPT_CLASS ScriptClassDesc_t* GetScriptDesc<matrix3x4_t>( matrix3x4_t* );
+extern template VSCRIPT_CLASS ScriptClassDesc_t* GetScriptDesc<Color>( Color* );
 #endif
 
 //-----------------------------------------------------------------------------

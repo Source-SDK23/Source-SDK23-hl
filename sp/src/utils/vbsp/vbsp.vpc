@@ -189,7 +189,7 @@ $Project "Vbsp"
 		$Lib mathlib
 		$Lib tier2
 		$Lib vtf
-		$Lib vscript [$MAPBASE_VSCRIPT]
+		$ImpLib	"vscript_mapbase" [$MAPBASE_VSCRIPT]
 	}
 
 	$File	"notes.txt"

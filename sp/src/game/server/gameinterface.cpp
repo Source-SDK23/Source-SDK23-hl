@@ -3540,6 +3540,9 @@ public:
 	{
 		AddAppSystem( "soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION );
 		AddAppSystem( "scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION );
+#ifdef MAPBASE
+		AddAppSystem( "vscript_mapbase" DLL_EXT_STRING, VSCRIPT_INTERFACE_VERSION );
+#endif
 	}
 
 	virtual int	Count()

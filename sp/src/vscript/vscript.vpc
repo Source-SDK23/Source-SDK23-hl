@@ -5,14 +5,17 @@
 //-----------------------------------------------------------------------------
 
 $macro SRCDIR		".."
+$Macro OUTBINNAME	"vscript_mapbase"
+$Macro OUTBINDIR	"$SRCDIR\..\game\bin"
  
-$include "$SRCDIR\vpc_scripts\source_lib_base.vpc"
+$include "$SRCDIR\vpc_scripts\source_dll_base.vpc"
 
 $Configuration
 {
 	$Compiler
 	{
 		$AdditionalIncludeDirectories	"$BASE;.\squirrel\include"
+		$PreprocessorDefinitions		"$BASE;VSCRIPT_DLL_EXPORT"
 		$PreprocessorDefinitions		"$BASE;MAPBASE_VSCRIPT"		[$MAPBASE_VSCRIPT]
 	}
 }
@@ -65,5 +68,10 @@ $Project "VScript"
 				}
 			}
 		}
+	}
+	
+	$Folder	"Link Libraries" 
+	{
+		$Lib	mathlib
 	}
 }
