@@ -24,4 +24,8 @@ inline bool VScriptRunScript( const char *pszScriptName, bool bWarnMissing = fal
 bool VScriptVBSPInit();
 void VScriptVBSPTerm();
 
-#endif // VSCRIPT_SERVER_H
+//-----------------------------------------------------------------------
+
+ChunkFileResult_t HandleBSPScriptEnt( entity_t *pMapEnt );
+
+#endif // VSCRIPT_VBSP_H

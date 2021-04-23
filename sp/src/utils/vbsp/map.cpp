@@ -1780,6 +1780,13 @@ ChunkFileResult_t CMapFile::LoadEntityCallback(CChunkFile *pFile, int nParam)
 			return ( ChunkFile_Ok );
 		}
 
+#ifdef MAPBASE_VSCRIPT
+		if ( Q_stricmp( pClassName, "logic_script_bsp" ) == 0 )
+		{
+			return HandleBSPScriptEnt( mapent );
+		}
+#endif
+
 		// areaportal entities move their brushes, but don't eliminate
 		// the entity
 		if( IsAreaPortal( pClassName ) )
@@ -2754,6 +2761,9 @@ bool LoadMapFile( const char *pszFileName )
 		{
 			int index = g_Maps.AddToTail( new CMapFile() );
 			g_LoadingMap = g_Maps[ index ];
+#ifdef MAPBASE_VSCRIPT
+			g_LoadingMap->SetFileName( pszFileName ); // Store the file name for VScript
+#endif
 			if ( g_MainMap == NULL )
 			{
 				g_MainMap = g_LoadingMap;
@@ -3384,13 +3394,39 @@ HSCRIPT CMapFile::GetScriptInstance()
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CMapFile::ScriptGetEntityKeyValues( int idx, HSCRIPT hKeyTable, HSCRIPT hValTable )
+int CMapFile::FindEntityIndexByName( int i, const char *pszName )
+{
+	for( ; i < num_entities; i++ )
+	{
+		const char *pName = ValueForKey( &entities[i], "targetname" );
+		if (stricmp( pName, pszName ) == 0)
+			return i;
+	}
+
+	return -1;
+}
+
+int CMapFile::FindEntityIndexByClass( int i, const char *pszClassName )
+{
+	for( ; i < num_entities; i++ )
+	{
+		const char *pClass = ValueForKey( &entities[i], "classname" );
+		if (stricmp( pClass, pszClassName ) == 0)
+			return i;
+	}
+
+	return -1;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CMapFile::ScriptGetEntityKeyValues( int idx, HSCRIPT hTable )
 {
 	epair_t *curPair = entities[idx].epairs;
 	while (curPair)
 	{
-		g_pScriptVM->ArrayAppend( hKeyTable, curPair->key );
-		g_pScriptVM->ArrayAppend( hValTable, curPair->value );
+		g_pScriptVM->SetValue( hTable, curPair->key, curPair->value );
 
 		curPair = curPair->next;
 	}

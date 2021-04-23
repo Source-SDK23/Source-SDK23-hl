@@ -357,3 +357,77 @@ void VScriptVBSPTerm()
 		}
 	}
 }
+
+//-------------------------------------------------------------------------------
+
+CUtlVector<CScriptScope> g_ScriptScopes;
+
+#define MAX_SCRIPT_ENT_PARAM_GROUPS 16
+
+ChunkFileResult_t HandleBSPScriptEnt( entity_t *pMapEnt )
+{
+	// Get the list of the sides.
+	char *pszScripts = ValueForKey( pMapEnt, "vscripts_bsp" );
+
+	if (pszScripts == NULL)
+	{
+		Warning( "logic_script_bsp with no scripts\n" );
+		return (ChunkFile_Fail);
+	}
+
+	if (g_pScriptVM == NULL)
+	{
+		Warning( "logic_script_bsp (%s) with no script VM\n", pszScripts );
+		return (ChunkFile_Fail);
+	}
+
+	int i = g_ScriptScopes.AddToTail();
+
+	// Get params
+	// TODO: CreateArray?
+	//g_ScriptScopes[i].Run( "ParamGroup <- []" );
+	//
+	//HSCRIPT hArray = NULL;
+	ScriptVariant_t varArray;
+	//if (g_ScriptScopes[i].GetValue( "ParamGroup", &var ))
+	//	hArray = var.m_hScript;
+
+	g_pScriptVM->CreateArray( varArray );
+	g_pScriptVM->SetValue( g_ScriptScopes[i], "ParamGroup", varArray );
+
+	if (varArray.m_hScript)
+	{
+		//for (epair_t *ep = pMapEnt->epairs; ep; ep = ep->next)
+		//{
+		//	// TODO: Does this need manual sorting?
+		//	if (!Q_strnicmp( ep->key, "Group", 5 ))
+		//		g_pScriptVM->ArrayAppend( varArray.m_hScript, ep->value );
+		//}
+
+		for (int i = 0; i < MAX_SCRIPT_ENT_PARAM_GROUPS; i++)
+		{
+			CFmtStrN<8> groupKey( "Group%s%i", (i < 10 ? "0" : ""), i );
+			const char *pszValue = ValueForKey( pMapEnt, groupKey.Access() );
+			g_pScriptVM->ArrayAppend( varArray.m_hScript, pszValue );
+		}
+	}
+	else
+	{
+		Warning("ERROR: ParamGroup not found\n");
+	}
+
+	CUtlStringList szScripts;
+	V_SplitString( pszScripts, " ", szScripts );
+
+	for (int i = 0; i < szScripts.Count(); i++)
+	{
+		Msg( "logic_script_bsp executing script: %s\n", szScripts[i] );
+		VScriptRunScript( szScripts[i], g_ScriptScopes[i], true );
+	}
+
+	// Clear out this entity.
+	pMapEnt->epairs = NULL;
+	g_pScriptVM->ClearValue( "ParamGroup" );
+	g_pScriptVM->ReleaseValue( varArray );
+	return ( ChunkFile_Ok );
+}

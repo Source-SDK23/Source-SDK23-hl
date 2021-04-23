@@ -347,6 +347,9 @@ public:
 #ifdef MAPBASE_VSCRIPT
 	HSCRIPT				GetScriptInstance();
 
+	const char*			GetFileName() const { return m_pszFileName; }
+	void				SetFileName( const char *pszFileName ) { m_pszFileName = pszFileName; }
+
 	// VScript functions
 	ALLOW_SCRIPT_ACCESS();
 private:
@@ -360,13 +363,16 @@ private:
 	int				GetEntityFirstBrush(int idx) { return (idx < num_entities && idx >= 0) ? entities[idx].firstbrush : 0; }
 	int				GetEntityNumBrushes(int idx) { return (idx < num_entities && idx >= 0) ? entities[idx].numbrushes : 0; }
 
-	void			ScriptGetEntityKeyValues(int idx, HSCRIPT hKeyTable, HSCRIPT hValTable);
+	int				FindEntityIndexByName( int i, const char *pszName );
+	int				FindEntityIndexByClass( int i, const char *pszClassName );
+	void			ScriptGetEntityKeyValues( int idx, HSCRIPT hTable );
 
 	int				ScriptAddSimpleEntityKV(HSCRIPT hKV/*, const Vector& vecOrigin, int iFirstBrush, int iNumBrushes*/);
 	int				ScriptAddInstance(const char *pszVMF, const Vector& vecOrigin, const QAngle& angAngles);
 
 	int				GetNumEntities() { return num_entities; }
 
+	const char		*m_pszFileName;
 	HSCRIPT			m_hScriptInstance;
 #endif
 };
