@@ -20,6 +20,7 @@
 #include "npcevent.h"
 #ifdef MAPBASE
 #include "interval.h"
+#include "scripted.h"
 #endif
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -113,6 +114,10 @@ public:
 	int FindBusyAnim( Activity iActivity, const char *pSequence );
 
 	busyanim_t *GetBusyAnim( int iIndex ) { return &m_ActBusyAnims[iIndex]; }
+
+#ifdef MAPBASE
+	int AddNewBusyAnim() { return m_ActBusyAnims.AddToTail(); }
+#endif
 
 protected:
 	CUtlVector<busyanim_t>	m_ActBusyAnims;
@@ -237,6 +242,8 @@ bool CActBusyAnimData::ParseActBusyFromKV( busyanim_t *pAnim, KeyValues *pSectio
 
 #ifdef MAPBASE
 	pAnim->bTranslateActivity = pSection->GetBool("translateactivity", false);
+
+	pAnim->bMapCustom = false;
 #endif
 
 	return true;
@@ -3383,4 +3390,262 @@ CAI_ActBusyBehavior *CAI_ActBusyQueueGoal::GetQueueBehaviorForNPC( CAI_BaseNPC *
 	Assert( pBehavior );
 	return pBehavior;
 }
+
+
+#ifdef MAPBASE
+class CAI_CustomActBusyHint : public CAI_Hint
+{
+	DECLARE_CLASS( CAI_CustomActBusyHint, CAI_Hint );
+public:
+
+	void		SetAnim( busyanim_t *pAnim, busyanimparts_t iAnimPart, string_t iszAnim );
+	void		ParseActBusyKV( busyanim_t *pAnim );
+
+	void		Activate();
+	void		Spawn();
+
+	CAI_ActBusyBehavior *GetTargetBusyBehavior( CAI_BaseNPC *pActor, const char *sInputName );
+
+	CAI_BaseNPC *FindTarget( CBaseEntity *pActivator, CBaseEntity *pCaller );
+	void SetTarget( CAI_BaseNPC *pTarget ) { m_hTargetEnt = pTarget; };
+	CAI_BaseNPC *GetTarget( void ) { return m_hTargetEnt; };
+
+	// Inputs
+	void		InputBeginSequence( inputdata_t &inputdata );
+	void		InputCancelSequence( inputdata_t &inputdata );
+
+	DECLARE_DATADESC();
+
+private:
+
+	string_t	m_iszEntity;		// Entity that is wanted for this script
+	float		m_flRadius;
+	int			m_fMoveTo;
+
+	string_t	m_iszBusy;
+	string_t	m_iszEntry;
+	string_t	m_iszExit;
+	string_t	m_iszCustomMove;	// Not a real actbusy entry, but still an option
+
+	string_t	m_iszBusySound;
+	string_t	m_iszEntrySound;
+	string_t	m_iszExitSound;
+
+	float	m_flMinTime;
+	float	m_flMaxTime;
+
+	bool	m_bUseAutomovement;
+
+	busyinterrupt_t	m_iBusyInteruptType;
+
+	bool	m_bTranslateActivity;
+
+
+	AIHANDLE	m_hTargetEnt;
+};
+
+LINK_ENTITY_TO_CLASS( ai_hint_actbusy_custom, CAI_CustomActBusyHint );
+
+BEGIN_DATADESC( CAI_CustomActBusyHint )
+
+	// NOTE: Keyvalue names should be kept similar to CAI_ScriptedSequence for easy exchanging!!!
+	DEFINE_KEYFIELD( m_iszEntity, FIELD_STRING, "m_iszEntity" ),
+	DEFINE_KEYFIELD( m_flRadius, FIELD_FLOAT, "m_flRadius" ),
+	DEFINE_KEYFIELD( m_fMoveTo, FIELD_INTEGER, "m_fMoveTo" ),
+
+	DEFINE_KEYFIELD( m_iszBusy, FIELD_STRING, "m_iszPlay" ),
+	DEFINE_KEYFIELD( m_iszEntry, FIELD_STRING, "m_iszEntry" ),
+	DEFINE_KEYFIELD( m_iszExit, FIELD_STRING, "m_iszExit" ),
+	DEFINE_KEYFIELD( m_iszCustomMove, FIELD_STRING, "m_iszCustomMove" ),
+
+	DEFINE_KEYFIELD( m_iszBusySound, FIELD_STRING, "BusySound" ),
+	DEFINE_KEYFIELD( m_iszEntrySound, FIELD_STRING, "EntrySound" ),
+	DEFINE_KEYFIELD( m_iszExitSound, FIELD_STRING, "ExitSound" ),
+
+	DEFINE_KEYFIELD( m_flMinTime, FIELD_FLOAT, "MinTime" ),
+	DEFINE_KEYFIELD( m_flMaxTime, FIELD_FLOAT, "MaxTime" ),
+
+	DEFINE_KEYFIELD( m_bUseAutomovement, FIELD_BOOLEAN, "UseAutomovement" ),
+
+	DEFINE_KEYFIELD( m_iBusyInteruptType, FIELD_INTEGER, "BusyInteruptType" ),
+
+	DEFINE_KEYFIELD( m_bTranslateActivity, FIELD_BOOLEAN, "TranslateActivity" ),
+
+	// Inputs
+	DEFINE_INPUTFUNC( FIELD_VOID, "BeginSequence", InputBeginSequence ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "CancelSequence", InputCancelSequence ),
+
+END_DATADESC();
+
+void CAI_CustomActBusyHint::SetAnim( busyanim_t *pAnim, busyanimparts_t iAnimPart, string_t iszAnim )
+{
+	pAnim->iActivities[iAnimPart] = (Activity)ActivityList_IndexForName( STRING( iszAnim ) );
+	if (pAnim->iActivities[iAnimPart] != ACT_INVALID)
+	{
+		pAnim->iszSequences[iAnimPart] = NULL_STRING;
+	}
+	else
+	{
+		pAnim->iszSequences[iAnimPart] = iszAnim;
+	}
+
+	/*
+	if ( Q_strnicmp( STRING(iszAnim), "ACT_", 4 ) == 0 )
+	{
+		pAnim->iActivities[iAnimPart] = (Activity)CAI_BaseNPC::GetActivityID( STRING( iszAnim ) );
+		pAnim->iszSequences[iAnimPart] = NULL_STRING;
+	}
+	else
+	{
+		pAnim->iActivities[iAnimPart] = ACT_INVALID;
+		pAnim->iszSequences[iAnimPart] = iszAnim;
+	}
+	*/
+}
+
+void CAI_CustomActBusyHint::ParseActBusyKV( busyanim_t *pAnim )
+{
+	const char *pszName = CFmtStr( "__%s%i", GetDebugName(), entindex() );
+
+	pAnim->iszName = AllocPooledString( pszName );
+
+	// Anims
+	SetAnim( pAnim, BA_BUSY, m_iszBusy );
+	SetAnim( pAnim, BA_ENTRY, m_iszEntry );
+	SetAnim( pAnim, BA_EXIT, m_iszExit );
+
+	// Sounds
+	pAnim->iszSounds[BA_BUSY] = m_iszBusySound;
+	pAnim->iszSounds[BA_ENTRY] = m_iszEntrySound;
+	pAnim->iszSounds[BA_EXIT] = m_iszExitSound;
+	
+	// Times
+	pAnim->flMinTime = m_flMinTime;
+	pAnim->flMaxTime = m_flMaxTime;
+
+	pAnim->bUseAutomovement = m_bUseAutomovement;
+
+	pAnim->iBusyInterruptType = m_iBusyInteruptType;
+
+	pAnim->bTranslateActivity = m_bTranslateActivity;
+
+	pAnim->bMapCustom = true;
+}
+
+void CAI_CustomActBusyHint::Activate()
+{
+	BaseClass::Activate();
+
+	busyanim_t *pAnim = g_ActBusyAnimDataSystem.GetBusyAnim( g_ActBusyAnimDataSystem.AddNewBusyAnim() );
+
+	ParseActBusyKV( pAnim );
+}
+
+void CAI_CustomActBusyHint::Spawn()
+{
+	// Not setting the hint type still works with forcing actbusy
+	// and also avoids attracting automatic actbusy goals
+	//SetHintType( HINT_WORLD_WORK_POSITION );
+
+	//
+	// If we have no name or we are set to start immediately, find the NPC and
+	// have them move to their script position now.
+	//
+	if (!GetEntityName() || (m_spawnflags & SF_SCRIPT_START_ON_SPAWN))
+	{
+		InputBeginSequence( inputdata_t() );
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+CAI_ActBusyBehavior *CAI_CustomActBusyHint::GetTargetBusyBehavior( CAI_BaseNPC *pActor, const char *sInputName )
+{
+	// Get the NPC's behavior
+	CAI_ActBusyBehavior *pBehavior;
+	if ( !pActor->GetBehavior( &pBehavior ) )
+	{
+		CGMsg( 0, CON_GROUP_NPC_SCRIPTS, "ai_hint_actbusy_custom input %s fired on an NPC that doesn't support ActBusy behavior.\n", sInputName );
+		return NULL;
+	}
+
+	return pBehavior;
+}
+
+CAI_BaseNPC *CAI_CustomActBusyHint::FindTarget( CBaseEntity *pActivator, CBaseEntity *pCaller )
+{
+	if (m_hTargetEnt != NULL)
+		return m_hTargetEnt;
+
+	m_hTargetEnt = dynamic_cast<CAI_BaseNPC*>(gEntList.FindEntityByName( NULL, m_iszEntity, this, pActivator, pCaller ));
+
+	if (!m_hTargetEnt)
+	{
+		CGMsg( 2, CON_GROUP_NPC_SCRIPTS, "ai_hint_actbusy_custom %d:\"%s\" can't find NPC \"%s\"\n", entindex(), GetDebugName(), STRING( m_iszEntity ) );
+	}
+
+	return m_hTargetEnt;
+}
+
+void CAI_CustomActBusyHint::InputBeginSequence( inputdata_t &inputdata )
+{
+	CAI_BaseNPC *pNPC = FindTarget( inputdata.pActivator, inputdata.pCaller );
+
+	CAI_ActBusyBehavior *pBehavior = GetTargetBusyBehavior( pNPC, "InputBeginSequence" );
+	if (!pBehavior)
+		return;
+
+	bool bTeleport = false;
+	Activity activity = ACT_INVALID;
+
+	switch (m_fMoveTo)
+	{
+	//case CINE_MOVETO_WALK:
+	//	activity = ACT_INVALID;
+	//	break;
+
+	case CINE_MOVETO_RUN:
+		activity = ACT_RUN;
+		break;
+
+	case CINE_MOVETO_CUSTOM:
+		if (m_iszCustomMove != NULL_STRING)
+		{
+			activity = (Activity)ActivityList_IndexForName( STRING( m_iszCustomMove ) );
+			if (activity == ACT_INVALID)
+			{
+				// Try it as sequence name
+				pBehavior->GetOuter()->m_iszSceneCustomMoveSeq = AllocPooledString( STRING( m_iszCustomMove ) );
+				activity = ACT_SCRIPT_CUSTOM_MOVE;
+			}
+		}
+		break;
+
+	case CINE_MOVETO_TELEPORT: 
+		bTeleport = true;
+		break;
+	}
+
+	// Tell the NPC to immediately act busy
+	pBehavior->SetBusySearchRange( m_flRadius );
+	pBehavior->ForceActBusy( NULL, this, m_flMaxTime, false, bTeleport, false, NULL, activity );
+}
+
+void CAI_CustomActBusyHint::InputCancelSequence( inputdata_t &inputdata )
+{
+	CAI_BaseNPC *pNPC = FindTarget( inputdata.pActivator, inputdata.pCaller );
+
+	CAI_ActBusyBehavior *pBehavior = GetTargetBusyBehavior( pNPC, "InputCancelSequence" );
+	if (!pBehavior)
+		return;
+
+	// Don't cancel if they're not using us
+	if (pNPC->GetHintNode() != this)
+		return;
+
+	// Just disable their behavior
+	pBehavior->Disable();
+}
+#endif
 

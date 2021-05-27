@@ -52,6 +52,7 @@ struct busyanim_t
 	bool				bUseAutomovement;
 #ifdef MAPBASE
 	bool				bTranslateActivity;
+	bool				bMapCustom; // Indicates this was from an ai_hint_actbusy_custom
 #endif
 };
 
