@@ -66,6 +66,9 @@ $Project
 		$File	"depthoffield_dx9.cpp"
 		
 		$File	"core_dx9.cpp"
+		
+		$File	"sky_dx9.cpp"
+		$File	"sky_hdr_dx9.cpp"
 	}
 
 	//$Shaders	"mapbase_dx9_20b.txt"
