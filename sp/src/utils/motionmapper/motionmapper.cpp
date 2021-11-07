@@ -30,6 +30,10 @@ int		g_iLinecount;
 bool g_bZBrush = false;
 bool g_bGaveMissingBoneWarning = false;
 
+#ifdef MAPBASE
+bool g_bFallBackToBoneNames = false;
+#endif
+
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -2529,12 +2533,224 @@ void CombineSkeletonAnimation(s_source_t *pSkeleton, s_source_t *pAnimation, s_b
 	}
 }
 
+#ifdef MAPBASE
+void LocateBoneByName( const char *pszName, s_bone_t *rawanim, s_node_t *localBone, int numBones, int &index )
+{
+	for(int i = 0; i < numBones; i++)
+	{
+		if ( V_stricmp(localBone[i].name, pszName) == 0 )
+		{
+			index = i;
+			return;
+		}
+	}
+}
+
+/*
+void CombineSkeletonAnimationFrame_BoneNames( s_source_t *pSkeleton, s_source_t *pAnimation, s_bone_t **ppAnim, int t )
+{
+	int numBones = pAnimation->numbones;
+	int size = numBones * sizeof( s_bone_t );
+	ppAnim[t] = (s_bone_t *) kalloc(1, size);
+	for(int i = 0; i < numBones; i++)
+	{
+		s_node_t pNode = pAnimation->localBone[i];
+		s_bone_t pAnimBone = pAnimation->rawanim[t][i];
+		
+		if(pNode.parent > -1)
+		{
+			if ( i < pSkeleton->numbones )
+			{
+				s_bone_t pSkelBone = pSkeleton->rawanim[0][i];
+
+				if (V_stricmp( pNode.name, pSkeleton->localBone[i].name ) != 0)
+				{
+					Msg( "Animation node '%s' doesn't match skeleton node '%s'; attempting to find by name", pNode.name, pSkeleton->localBone[i].name );
+					LocateBoneByName( pNode.name, pSkeleton, pSkelBone );
+				}
+
+				ppAnim[t][i].pos = pSkelBone.pos;
+			}
+			else
+			{
+				if ( !g_bGaveMissingBoneWarning )
+				{
+					g_bGaveMissingBoneWarning = true;
+					Warning( "Warning: Target skeleton has less bones than source animation. Reverting to source data for extra bones.\n" );
+				}
+				
+				ppAnim[t][i].pos = pAnimBone.pos;
+			}
+		}
+		else
+		{
+			ppAnim[t][i].pos = pAnimBone.pos;
+		}
+		
+		ppAnim[t][i].rot = pAnimBone.rot;	
+	}
+}
+void CombineSkeletonAnimation_BoneNames( s_source_t *pSkeleton, s_source_t *pAnimation, s_bone_t **ppAnim )
+{
+	Msg( "Using BoneNames func" );
+
+	int numFrames = pAnimation->numframes;
+	for(int t = 0; t < numFrames; t++)
+	{
+		CombineSkeletonAnimationFrame_BoneNames(pSkeleton, pAnimation, ppAnim, t);
+	}
+}
+*/
+
+void AlignSkeletonBonesFromNames( s_source_t *pSkeleton, s_source_t *pAnimation, s_bone_t **tmp_rawanim, s_node_t *tmp_localBone )
+{
+	int numBones = pAnimation->numbones;
+	for (int t = 0; t < pSkeleton->numframes; t++)
+	{
+		for(int i = 0; i < numBones; i++)
+		{
+			s_node_t pNode = pAnimation->localBone[i];
+
+			//if(pNode.parent > -1)
+			{
+				if ( i < pSkeleton->numbones )
+				{
+					int index = i;
+					s_bone_t pSkelBone = pSkeleton->rawanim[t][index];
+
+					if (V_stricmp( pNode.name, pSkeleton->localBone[i].name ) != 0)
+					{
+						Msg( "Animation node '%s' doesn't match skeleton node '%s'; attempting to find by name\n", pNode.name, pSkeleton->localBone[i].name );
+						LocateBoneByName( pNode.name, tmp_rawanim[t], tmp_localBone, pSkeleton->numbones, index );
+					}
+					else
+					{
+						Msg( "Animation node '%s' matches skeleton node '%s'\n", pNode.name, pSkeleton->localBone[i].name );
+					}
+
+					Msg( "(%i/%i)\n", t, i );
+
+					pSkeleton->rawanim[t][i] = tmp_rawanim[t][index];
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	for(int i = 0; i < numBones; i++)
+	{
+		s_node_t pNode = pAnimation->localBone[i];
+
+		//if(pNode.parent > -1)
+		{
+			if ( i < pSkeleton->numbones )
+			{
+				int index = i;
+
+				if (V_stricmp( pNode.name, pSkeleton->localBone[i].name ) != 0)
+				{
+					//Msg( "Animation node '%s' doesn't match skeleton node '%s'; attempting to find by name\n", pNode.name, pSkeleton->localBone[i].name );
+					LocateBoneByName( pNode.name, tmp_rawanim[0], tmp_localBone, pSkeleton->numbones, index );
+				}
+				else
+				{
+					//Msg( "Animation node '%s' matches skeleton node '%s'\n", pNode.name, pSkeleton->localBone[i].name );
+				}
+
+				Msg( "(%i)\n", i );
+
+				Q_strncpy( pSkeleton->localBone[i].name, tmp_localBone[index].name, 128 );
+			}
+			else
+			{
+				break;
+			}
+		}
+	}
+}
+
+void UnalignSkeletonBonesFromNames( s_source_t *pSkeleton, s_source_t *pAnimation, s_bone_t **tmp_rawanim, s_node_t *tmp_localBone )
+{
+	// Do one loop to update the tmp vars
+	int numBones = pSkeleton->numbones;
+	for (int t = 0; t < pSkeleton->numframes; t++)
+	{
+		for(int i = 0; i < numBones; i++)
+		{
+			s_node_t pNode = pSkeleton->localBone[i];
+
+			int index = i;
+
+			LocateBoneByName( pNode.name, tmp_rawanim[t], tmp_localBone, pSkeleton->numbones, index );
+
+			if (index != i)
+				Msg( "Restoring animation node '%s' from remapped node '%s'\n", tmp_localBone[i].name, pNode.name );
+
+			tmp_rawanim[t][index].pos = pSkeleton->rawanim[t][i].pos;
+			tmp_rawanim[t][index].rot = pSkeleton->rawanim[t][i].rot;
+
+			Q_strncpy( pSkeleton->localBone[i].name, tmp_localBone[i].name, 128 );
+		}
+
+		memcpy( pSkeleton->rawanim[t], tmp_rawanim[t], pSkeleton->numbones * sizeof( s_bone_t ) );
+		//memcpy( pSkeleton->localBone, tmp_localBone, pSkeleton->numbones * sizeof( s_node_t ) );
+
+		/*
+		for(int i = 0; i < numBones; i++)
+		{
+			s_node_t pNode = pSkeleton->localBone[i];
+
+			int index = i;
+
+			if (V_stricmp( pNode.name, tmp_localBone[i].name ) != 0)
+			{
+				LocateBoneByName( pNode.name, pSkeleton->rawanim[0], pSkeleton->localBone, pSkeleton->numbones, index );
+
+				Msg( "Restoring animation node '%s' from remapped node '%s'\n", tmp_localBone[i].name, pNode.name );
+
+				pSkeleton->localBone[i] = tmp_localBone[index];
+				pSkeleton->rawanim[0][i] = tmp_rawanim[index];
+			}
+			else
+			{
+				Msg( "No need to restore animation node '%s' from not remapped node '%s'\n", tmp_localBone[i].name, pNode.name );
+			}
+		}
+		*/
+	}
+}
+#endif
+
 
 //--------------------------------------------------------------------
 // MotionMap
 //--------------------------------------------------------------------  
 s_source_t *MotionMap( s_source_t *pSource, s_source_t *pTarget, s_template_t *pTemplate )
 {
+#ifdef MAPBASE
+	s_bone_t *tmp_rawanim[MAXSTUDIOANIMFRAMES];
+	s_node_t *tmp_localBone = NULL;
+
+	if (g_bFallBackToBoneNames)
+	{
+		for (int i = 0; i < pSource->numframes; i++)
+		{
+			tmp_rawanim[i] = (s_bone_t *)kalloc( 1, pTarget->numbones * sizeof(s_bone_t) );
+			Msg( "%i (%i/%i)\n", i, pSource->numframes, pTarget->numbones );
+			//memcpy( tmp_rawanim[i], pTarget->rawanim[i], pTarget->numbones * sizeof( s_bone_t ) );
+		}
+
+		tmp_localBone = new s_node_t[pTarget->numbones];
+		memcpy( tmp_rawanim, pTarget->rawanim, sizeof(tmp_rawanim) ); // (pTarget->numbones * sizeof( s_bone_t )) * pSource->numframes
+		memcpy( tmp_localBone, pTarget->localBone, pTarget->numbones * sizeof( s_node_t ) );
+
+		// Check if the bone names are out of sync. If they are, re-order them
+		AlignSkeletonBonesFromNames( pTarget, pSource, tmp_rawanim, tmp_localBone );
+	}
+#endif
 
 	// scale skeleton
 	if(pTemplate->doSkeletonScale)
@@ -2551,10 +2767,18 @@ s_source_t *MotionMap( s_source_t *pSource, s_source_t *pTarget, s_template_t *p
 	
 
 	// root stuff
+#ifdef MAPBASE
+	// TODO: Something flexible
+	char rootString[128] = "ValveBiped.Bip01_Pelvis";
+
+	// !!! PARAMETER
+	int rootIndex  = GetNodeIndex(pSource, rootString);
+#else
 	char rootString[128] = "ValveBiped.Bip01";
 
 	// !!! PARAMETER
 	int rootIndex  = GetNodeIndex(pSource, rootString);
+#endif
 	int rootScaleIndex = GetNodeIndex(pSource, pTemplate->rootScaleJoint);
 	int rootScalePath[512];
 	if(rootScaleIndex > -1)
@@ -2576,6 +2800,9 @@ s_source_t *MotionMap( s_source_t *pSource, s_source_t *pTarget, s_template_t *p
 
 	if(g_verbose)
 		printf("Root Scale Factor: %f\n", rootScaleFactor);
+
+	Warning( "Bone name test: pSource/pAnimation - '%s'\n", pSource->localBone[0].name );
+	Warning( "Bone name test: pTarget/pSkeleton - '%s'\n", pTarget->localBone[0].name );
 	
 
 	// root scale origin
@@ -2588,8 +2815,21 @@ s_source_t *MotionMap( s_source_t *pSource, s_source_t *pTarget, s_template_t *p
 	s_bone_t *combinedRefAnimation[MAXSTUDIOANIMFRAMES];
 	s_bone_t *combinedAnimation[MAXSTUDIOANIMFRAMES];
 	s_bone_t *sourceAnimation[MAXSTUDIOANIMFRAMES];
-	CombineSkeletonAnimation(pTarget, pSource, combinedAnimation);
-	CombineSkeletonAnimation(pTarget, pSource, combinedRefAnimation);
+
+#ifdef MAPBASE
+
+	/*
+	if (g_bFallBackToBoneNames)
+	{
+		CombineSkeletonAnimation_BoneNames(pTarget, pSource, combinedRefAnimation);
+		CombineSkeletonAnimation_BoneNames(pTarget, pSource, combinedAnimation);
+	}
+	*/
+#endif
+	{
+		CombineSkeletonAnimation(pTarget, pSource, combinedAnimation);
+		CombineSkeletonAnimation(pTarget, pSource, combinedRefAnimation);
+	}
 	
 
 	// do source and target sanity checking
@@ -3025,6 +3265,19 @@ s_source_t *MotionMap( s_source_t *pSource, s_source_t *pTarget, s_template_t *p
 	}
 	pTarget->numframes = sourceNumFrames;
 	
+#ifdef MAPBASE
+	// Unalign the bones
+	if (g_bFallBackToBoneNames)
+	{
+		//UnalignSkeletonBonesFromNames( pTarget, pSource, tmp_rawanim, tmp_localBone );
+
+		/*
+		for (int i = 0; i < pSource->numframes; i++)
+			delete [] tmp_rawanim[i];
+		delete tmp_localBone;
+		*/
+	}
+#endif
 
 
 	
@@ -3180,6 +3433,18 @@ int main (int argc, char **argv)
 				i++;
 				continue;
 			}
+#ifdef MAPBASE
+			if (!stricmp(argv[i], "-game") || !stricmp(argv[i], "-vproject"))
+			{
+				i++;
+				continue;
+			}
+			if (!stricmp(argv[i], "-fallbackBoneNames"))
+			{
+				g_bFallBackToBoneNames = true;
+				continue;
+			}
+#endif
 		}
 		else
 		{
@@ -3242,6 +3507,11 @@ int main (int argc, char **argv)
 	if(useTemplate)
 	{
 		pTemplate = Load_Template(templateFileName);
+
+#ifdef MAPBASE
+		if (!pTemplate)
+			Error( "Template file not found" );
+#endif
 	}
 	else
 	{
