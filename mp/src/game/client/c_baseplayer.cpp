@@ -284,6 +284,7 @@ END_RECV_TABLE()
 		RecvPropInt			( RECVINFO( m_spawnflags ), 0, RecvProxy_ShiftPlayerSpawnflags ),
 
 		RecvPropBool		( RECVINFO( m_bDrawPlayerModelExternally ) ),
+		RecvPropBool		( RECVINFO( m_bInTriggerFall ) ),
 #endif
 
 	END_RECV_TABLE()
@@ -334,7 +335,10 @@ END_RECV_TABLE()
 
 		RecvPropString( RECVINFO(m_szLastPlaceName) ),
 
-		RecvPropEHandle(RECVINFO(m_hPostProcessCtrl)),		// Send to everybody - for spectating
+#ifdef MAPBASE // From Alien Swarm SDK
+		RecvPropEHandle( RECVINFO( m_hPostProcessCtrl ) ),		// Send to everybody - for spectating
+		RecvPropEHandle( RECVINFO( m_hColorCorrectionCtrl ) ),	// Send to everybody - for spectating
+#endif
 
 #if defined USES_ECON_ITEMS
 		RecvPropUtlVector( RECVINFO_UTLVECTOR( m_hMyWearables ), MAX_WEARABLES_SENT_FROM_SERVER,	RecvPropEHandle(NULL, 0, 0) ),
@@ -496,14 +500,14 @@ C_BasePlayer::~C_BasePlayer()
 	if ( this == s_pLocalPlayer )
 	{
 		s_pLocalPlayer = NULL;
-	}
 
 #ifdef MAPBASE_VSCRIPT
-	if ( IsLocalPlayer() && g_pScriptVM )
-	{
-		g_pScriptVM->SetValue( "player", SCRIPT_VARIANT_NULL );
-	}
+		if ( g_pScriptVM )
+		{
+			g_pScriptVM->SetValue( "player", SCRIPT_VARIANT_NULL );
+		}
 #endif
+	}
 
 	delete m_pFlashlight;
 }
@@ -861,6 +865,14 @@ void C_BasePlayer::PostDataUpdate( DataUpdateType_t updateType )
 			// changed level, which would cause the snd_soundmixer to be left modified.
 			ConVar *pVar = (ConVar *)cvar->FindVar( "snd_soundmixer" );
 			pVar->Revert();
+
+#ifdef MAPBASE_VSCRIPT
+			// Moved here from LevelInitPostEntity, which is executed before local player is spawned.
+			if ( g_pScriptVM )
+			{
+				g_pScriptVM->SetValue( "player", GetScriptInstance() );
+			}
+#endif
 		}
 	}
 
@@ -1373,6 +1385,10 @@ void C_BasePlayer::AddEntity( void )
 
 	// Add in lighting effects
 	CreateLightEffects();
+
+#ifdef MAPBASE
+	SetLocalAnglesDim( X_INDEX, 0 );
+#endif
 }
 
 extern float UTIL_WaterLevel( const Vector &position, float minz, float maxz );
@@ -1495,8 +1511,9 @@ int C_BasePlayer::DrawModel( int flags )
 	if (m_bDrawPlayerModelExternally)
 	{
 		// Draw the player in any view except the main or "intro" view, both of which are default first-person views.
+		// HACKHACK: Also don't draw in shadow depth textures if the player's flashlight is on, as that causes the playermodel to block it.
 		view_id_t viewID = CurrentViewID();
-		if (viewID == VIEW_MAIN || viewID == VIEW_INTRO_CAMERA)
+		if (viewID == VIEW_MAIN || viewID == VIEW_INTRO_CAMERA || (viewID == VIEW_SHADOW_DEPTH_TEXTURE && IsEffectActive(EF_DIMLIGHT)))
 		{
 			// Make sure the player model wouldn't draw anyway...
 			if (!ShouldDrawThisPlayer())
@@ -1518,6 +1535,38 @@ int C_BasePlayer::DrawModel( int flags )
 
 	return BaseClass::DrawModel( flags );
 }
+
+#ifdef MAPBASE
+ConVar cl_player_allow_thirdperson_projtex( "cl_player_allow_thirdperson_projtex", "1", FCVAR_NONE, "Allows players to receive projected textures if they're non-local or in third person." );
+ConVar cl_player_allow_thirdperson_rttshadows( "cl_player_allow_thirdperson_rttshadows", "0", FCVAR_NONE, "Allows players to cast RTT shadows if they're non-local or in third person." );
+ConVar cl_player_allow_firstperson_projtex( "cl_player_allow_firstperson_projtex", "1", FCVAR_NONE, "Allows players to receive projected textures even if they're in first person." );
+ConVar cl_player_allow_firstperson_rttshadows( "cl_player_allow_firstperson_rttshadows", "0", FCVAR_NONE, "Allows players to cast RTT shadows even if they're in first person." );
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+ShadowType_t C_BasePlayer::ShadowCastType()
+{
+	if ( (!IsLocalPlayer() || ShouldDraw()) ? !cl_player_allow_thirdperson_rttshadows.GetBool() : !cl_player_allow_firstperson_rttshadows.GetBool() )
+		return SHADOWS_NONE;
+
+	if ( !IsVisible() )
+		 return SHADOWS_NONE;
+
+	return SHADOWS_RENDER_TO_TEXTURE_DYNAMIC;
+}
+
+//-----------------------------------------------------------------------------
+// Should this object receive shadows?
+//-----------------------------------------------------------------------------
+bool C_BasePlayer::ShouldReceiveProjectedTextures( int flags )
+{
+	if ( (!IsLocalPlayer() || ShouldDraw()) ? !cl_player_allow_thirdperson_projtex.GetBool() : !cl_player_allow_firstperson_projtex.GetBool() )
+		return false;
+
+	return BaseClass::ShouldReceiveProjectedTextures( flags );
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -2934,6 +2983,7 @@ void C_BasePlayer::UpdateFogBlend( void )
 	}
 }
 
+#ifdef MAPBASE // From Alien Swarm SDK
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
@@ -2941,6 +2991,15 @@ C_PostProcessController* C_BasePlayer::GetActivePostProcessController() const
 {
 	return m_hPostProcessCtrl.Get();
 }
+
+//-----------------------------------------------------------------------------
+//
+//-----------------------------------------------------------------------------
+C_ColorCorrection* C_BasePlayer::GetActiveColorCorrection() const
+{
+	return m_hColorCorrectionCtrl.Get();
+}
+#endif
 
 //-----------------------------------------------------------------------------
 // Purpose: 

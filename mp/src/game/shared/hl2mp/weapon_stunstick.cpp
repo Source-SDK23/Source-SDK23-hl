@@ -87,6 +87,27 @@ acttable_t	CWeaponStunStick::m_acttable[] =
  	{ ACT_HL2MP_IDLE,					ACT_HL2MP_IDLE_MELEE,					false },
  	{ ACT_HL2MP_RUN,					ACT_HL2MP_RUN_MELEE,					false },
 #endif //SecobMod__Enable_Fixed_Multiplayer_AI
+#if EXPANDED_HL2_WEAPON_ACTIVITIES
+	{ ACT_IDLE,							ACT_IDLE_MELEE,		false },
+	{ ACT_RUN,							ACT_RUN_MELEE,		false },
+	{ ACT_WALK,							ACT_WALK_MELEE,		false },
+#endif
+
+#ifdef MAPBASE
+	// HL2:DM activities (for third-person animations in SP)
+	{ ACT_RANGE_ATTACK1,                ACT_RANGE_ATTACK_SLAM, true },
+	{ ACT_HL2MP_IDLE,                    ACT_HL2MP_IDLE_MELEE,                    false },
+	{ ACT_HL2MP_RUN,                    ACT_HL2MP_RUN_MELEE,                    false },
+	{ ACT_HL2MP_IDLE_CROUCH,            ACT_HL2MP_IDLE_CROUCH_MELEE,            false },
+	{ ACT_HL2MP_WALK_CROUCH,            ACT_HL2MP_WALK_CROUCH_MELEE,            false },
+	{ ACT_HL2MP_GESTURE_RANGE_ATTACK,    ACT_HL2MP_GESTURE_RANGE_ATTACK_MELEE,    false },
+	{ ACT_HL2MP_GESTURE_RELOAD,            ACT_HL2MP_GESTURE_RELOAD_MELEE,            false },
+	{ ACT_HL2MP_JUMP,                    ACT_HL2MP_JUMP_MELEE,                    false },
+#if EXPANDED_HL2DM_ACTIVITIES
+	{ ACT_HL2MP_GESTURE_RANGE_ATTACK2,	ACT_HL2MP_GESTURE_RANGE_ATTACK2_MELEE,		false },
+	{ ACT_HL2MP_WALK,					ACT_HL2MP_WALK_MELEE,						false },
+#endif
+#endif
 };
 
 IMPLEMENT_ACTTABLE(CWeaponStunStick);

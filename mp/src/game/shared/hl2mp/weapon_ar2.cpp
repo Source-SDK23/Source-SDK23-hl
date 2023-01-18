@@ -143,6 +143,19 @@ IMPLEMENT_ACTTABLE(CWeaponAR2);
 //SecobMod
 //#endif
 
+#ifdef MAPBASE
+// Allows Weapon_BackupActivity() to access the AR2's activity table.
+acttable_t *GetAR2Acttable()
+{
+	return CWeaponAR2::m_acttable;
+}
+
+int GetAR2ActtableCount()
+{
+	return ARRAYSIZE(CWeaponAR2::m_acttable);
+}
+#endif
+
 CWeaponAR2::CWeaponAR2( )
 {
 	m_fMinRange1	= 65;

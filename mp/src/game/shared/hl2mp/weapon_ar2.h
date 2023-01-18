@@ -74,6 +74,9 @@ protected:
 	float					m_flDelayedFire;
 	bool					m_bShotDelayed;
 	int						m_nVentPose;
+#ifdef MAPBASE
+public:
+#endif
 	DECLARE_ACTTABLE();
 	
 #ifdef SecobMod__Enable_Fixed_Multiplayer_AI

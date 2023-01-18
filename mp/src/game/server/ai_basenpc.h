@@ -64,7 +64,9 @@ class CBaseGrenade;
 class CBaseDoor;
 class CBasePropDoor;
 struct AI_Waypoint_t;
+#ifndef NEW_RESPONSE_SYSTEM
 class AI_Response;
+#endif
 class CBaseFilter;
 
 typedef CBitVec<MAX_CONDITIONS> CAI_ScheduleBits;
@@ -676,6 +678,7 @@ public:
 
 	virtual bool		ShouldAlwaysThink();
 	void				ForceGatherConditions()	{ m_bForceConditionsGather = true; SetEfficiency( AIE_NORMAL ); }	// Force an NPC out of PVS to call GatherConditions on next think
+	bool				IsForceGatherConditionsSet() { return m_bForceConditionsGather; }
 
 	virtual float		LineOfSightDist( const Vector &vecDir = vec3_invalid, float zEye = FLT_MAX );
 
@@ -969,7 +972,7 @@ public:
 	void				RemoveSleepFlags( int flags ) { m_SleepFlags &= ~flags; }
 	bool				HasSleepFlags( int flags ) { return (m_SleepFlags & flags) == flags; }
 
-	void				UpdateSleepState( bool bInPVS );
+	virtual void		UpdateSleepState( bool bInPVS );
 	virtual	void		Wake( bool bFireOutput = true );
 #ifdef MAPBASE
 	// A version of Wake() that takes an activator
@@ -1006,12 +1009,17 @@ public:
 	Activity			NPC_TranslateActivity( Activity eNewActivity );
 #ifdef MAPBASE
 	Activity			TranslateCrouchActivity( Activity baseAct );
+	virtual bool		CanTranslateCrouchActivity( void ) { return true; }
 	virtual Activity	NPC_BackupActivity( Activity eNewActivity );
 #endif
 	Activity			GetActivity( void ) { return m_Activity; }
 	virtual void		SetActivity( Activity NewActivity );
 	Activity			GetIdealActivity( void ) { return m_IdealActivity; }
 	void				SetIdealActivity( Activity NewActivity );
+#ifdef MAPBASE
+	Activity			GetTranslatedActivity( void ) { return m_translatedActivity; }
+	Activity			GetIdealTranslatedActivity( void ) { return m_IdealTranslatedActivity; }
+#endif
 	void				ResetIdealActivity( Activity newIdealActivity );
 	void				SetSequenceByName( const char *szSequence );
 	void				SetSequenceById( int iSequence );
@@ -1028,6 +1036,25 @@ public:
 
 	void				SetActivityAndSequence(Activity NewActivity, int iSequence, Activity translatedActivity, Activity weaponActivity);
 
+#ifdef MAPBASE
+	//-----------------------------------------------------
+
+	// Returns the gesture variant of an activity (i.e. "ACT_GESTURE_RANGE_ATTACK1")
+	static Activity			GetGestureVersionOfActivity( Activity inActivity );
+
+	// Returns the sequence variant of a gesture activity
+	static Activity			GetSequenceVersionOfGesture( Activity inActivity );
+
+	//-----------------------------------------------------
+
+	virtual bool				ShouldPlayFakeSequenceGesture( Activity nActivity, Activity nTranslatedActivity );
+	virtual Activity			SelectFakeSequenceGesture( Activity nActivity, Activity nTranslatedActivity );
+	void				PlayFakeSequenceGesture( Activity nActivity, Activity nSequence, Activity nTranslatedSequence );
+
+	int					GetFakeSequenceGesture();
+	void				ResetFakeSequenceGesture();
+#endif
+
 private:
 
 	void				AdvanceToIdealActivity(void);
@@ -1040,6 +1067,10 @@ private:
 	int					m_nIdealSequence;				// Desired animation sequence
 	Activity			m_IdealTranslatedActivity;		// Desired actual translated animation state
 	Activity			m_IdealWeaponActivity;			// Desired weapon animation state
+
+#ifdef MAPBASE
+	int					m_FakeSequenceGestureLayer;		// The gesture layer impersonating a sequence (-1 if invalid)
+#endif
 
 	CNetworkVar(int, m_iDeathPose );
 	CNetworkVar(int, m_iDeathFrame );
@@ -1225,6 +1256,8 @@ public:
 #endif
 
 #ifdef MAPBASE_VSCRIPT
+private:
+
 	// VScript stuff uses "VScript" instead of just "Script" to avoid
 	// confusion with NPC_STATE_SCRIPT or StartScripting
 	HSCRIPT				VScriptGetEnemy();
@@ -1248,6 +1281,13 @@ public:
 	int					ScriptGetActivityID() { return GetActivity(); }
 	void				ScriptSetActivity( const char *szActivity ) { SetActivity( (Activity)GetActivityID( szActivity ) ); }
 	void				ScriptSetActivityID( int iActivity ) { SetActivity((Activity)iActivity); }
+	int					ScriptTranslateActivity( const char *szActivity ) { return TranslateActivity( (Activity)GetActivityID( szActivity ) ); }
+	int					ScriptTranslateActivityID( int iActivity ) { return TranslateActivity( (Activity)iActivity ); }
+
+	const char*			VScriptGetGestureVersionOfActivity( const char *pszActivity ) { return GetActivityName( GetGestureVersionOfActivity( (Activity)GetActivityID( pszActivity ) ) ); }
+	int					VScriptGetGestureVersionOfActivityID( int iActivity ) { return GetGestureVersionOfActivity( (Activity)iActivity ); }
+	const char*			VScriptGetSequenceVersionOfGesture( const char *pszActivity ) { return GetActivityName( GetSequenceVersionOfGesture( (Activity)GetActivityID( pszActivity ) ) ); }
+	int					VScriptGetSequenceVersionOfGestureID( int iActivity ) { return GetSequenceVersionOfGesture( (Activity)iActivity ); }
 
 	const char*			VScriptGetSchedule();
 	int					VScriptGetScheduleID();
@@ -1737,8 +1777,8 @@ public:
 	virtual bool		DoHolster(void);
 	virtual bool		DoUnholster(void);
 
-	virtual bool		ShouldUnholsterWeapon() { return GetState() == NPC_STATE_COMBAT; }
-	virtual bool		CanUnholsterWeapon() { return IsWeaponHolstered(); }
+	virtual bool		ShouldUnholsterWeapon();
+	virtual bool		CanUnholsterWeapon();
 
 	void				InputGiveWeaponHolstered( inputdata_t &inputdata );
 	void				InputChangeWeapon( inputdata_t &inputdata );
@@ -2124,6 +2164,7 @@ public:
 	COutputEHANDLE		m_OnUnholsterWeapon;
 
 	COutputEHANDLE		m_OnItemPickup;
+	COutputEHANDLE		m_OnItemDrop;
 
 	COutputInt			m_OnStateChange;
 #endif
@@ -2211,6 +2252,10 @@ public:
 	inline void	ForceCrouch( void );
 	inline void	ClearForceCrouch( void );
 
+#ifdef MAPBASE
+	bool		 CouldShootIfCrouchingAt( const Vector &vecPosition, const Vector &vecForward, const Vector &vecRight, float flDist = 48.0f );
+#endif
+
 protected:
 	virtual bool Crouch( void );
 	virtual bool Stand( void );
@@ -2270,6 +2315,16 @@ private:
 	static CAI_GlobalScheduleNamespace	gm_SchedulingSymbols;
 	static CAI_ClassScheduleIdSpace		gm_ClassScheduleIdSpace;
 
+#ifdef MAPBASE
+	typedef struct
+	{
+		Activity	sequence;
+		Activity	gesture;
+	} actlink_t;
+
+	static actlink_t		gm_ActivityGestureLinks[];
+#endif
+
 public:
 	//----------------------------------------------------
 	// Debugging tools
@@ -2313,6 +2368,16 @@ public:
 #ifdef AI_MONITOR_FOR_OSCILLATION
 	CUtlVector<AIScheduleChoice_t>	m_ScheduleHistory;
 #endif//AI_MONITOR_FOR_OSCILLATION
+
+#ifdef MAPBASE_VSCRIPT
+	static ScriptHook_t	g_Hook_QueryHearSound;
+	static ScriptHook_t	g_Hook_QuerySeeEntity;
+	static ScriptHook_t	g_Hook_TranslateActivity;
+	static ScriptHook_t	g_Hook_TranslateSchedule;
+	static ScriptHook_t	g_Hook_GetActualShootPosition;
+	static ScriptHook_t	g_Hook_OverrideMove;
+	static ScriptHook_t	g_Hook_ShouldPlayFakeSequenceGesture;
+#endif
 
 private:
 

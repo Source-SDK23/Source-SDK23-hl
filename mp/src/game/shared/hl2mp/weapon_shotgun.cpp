@@ -236,6 +236,19 @@ void CWeaponShotgun::FireNPCPrimaryAttack( CBaseCombatCharacter *pOperator, bool
 	pOperator->FireBullets( 8, vecShootOrigin, vecShootDir, GetBulletSpread(), MAX_TRACE_LENGTH, m_iPrimaryAmmoType, 0 );
 }
 
+#ifdef MAPBASE
+// Allows Weapon_BackupActivity() to access the shotgun's activity table.
+acttable_t *GetShotgunActtable()
+{
+	return CWeaponShotgun::m_acttable;
+}
+
+int GetShotgunActtableCount()
+{
+	return ARRAYSIZE(CWeaponShotgun::m_acttable);
+}
+#endif
+
 #endif
 
 //-----------------------------------------------------------------------------

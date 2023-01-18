@@ -2516,7 +2516,7 @@ class CBreakableGibShooter : public CBaseEntity
 	DECLARE_DATADESC();
 public:
 
-	const char	*GetRandomTemplateModel( CPointTemplate *pTemplate );
+	int GetRandomTemplateModelIndex( CPointTemplate *pTemplate );
 
 	void		Precache( void );
 
@@ -2565,19 +2565,16 @@ END_DATADESC()
 LINK_ENTITY_TO_CLASS( env_break_shooter, CBreakableGibShooter );
 
 
-const char *CBreakableGibShooter::GetRandomTemplateModel( CPointTemplate *pTemplate )
+int CBreakableGibShooter::GetRandomTemplateModelIndex( CPointTemplate *pTemplate )
 {
 	int iIndex = RandomInt( 0, pTemplate->GetNumTemplates() );
-	char *iszTemplate = (char*)(STRING(Templates_FindByIndex(pTemplate->GetTemplateIndexForTemplate(iIndex))));
-
-	CEntityMapData entData( iszTemplate );
+	const char *szTemplate = STRING(Templates_FindByIndex(pTemplate->GetTemplateIndexForTemplate(iIndex)));
 
 	// This might seem a little messy, but I think it's cheaper than creating the entity.
 	char szModel[MAPKEY_MAXLENGTH];
-	if (!entData.ExtractValue("model", szModel))
-		return NULL;
+	bool modelExtracted = MapEntity_ExtractValue(szTemplate, "model", szModel);
 
-	return strdup(szModel);
+	return modelinfo->GetModelIndex( modelExtracted ? szModel : NULL );
 }
 
 void CBreakableGibShooter::Precache( void )
@@ -2609,7 +2606,7 @@ void CBreakableGibShooter::Shoot( void )
 		if (m_iModelType == MODELTYPE_BREAKABLECHUNKS)
 			iModelIndex = modelinfo->GetModelIndex( g_PropDataSystem.GetRandomChunkModel( STRING( GetModelName() ) ) );
 		else if (m_iModelType == MODELTYPE_TEMPLATE)
-			iModelIndex = modelinfo->GetModelIndex( GetRandomTemplateModel(pTemplate) );
+			iModelIndex = GetRandomTemplateModelIndex( pTemplate );
 
 		// All objects except the first one in this run are marked as slaves...
 		int slaveFlag = 0;
