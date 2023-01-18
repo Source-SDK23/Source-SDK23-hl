@@ -137,12 +137,23 @@ bool ConceptStringLessFunc( const string_t &lhs, const string_t &rhs )
 	return CaselessStringLessThan( STRING(lhs), STRING(rhs) ); 
 }
 
+#ifdef NEW_RESPONSE_SYSTEM
+bool ConceptInfoStringLessFunc( const AIConcept_t& lhs, const AIConcept_t& rhs )
+{
+	return CaselessStringLessThan( lhs.GetStringConcept(), rhs.GetStringConcept() );
+}
+#endif
+
 //-----------------------------------------------------------------------------
 
 class CConceptInfoMap : public CUtlMap<AIConcept_t, ConceptInfo_t *> {
 public:
 	CConceptInfoMap() :
+#ifdef NEW_RESPONSE_SYSTEM
+	  CUtlMap<AIConcept_t, ConceptInfo_t *>( ConceptInfoStringLessFunc )
+#else
 	  CUtlMap<AIConcept_t, ConceptInfo_t *>( CaselessStringLessThan )
+#endif
 	  {
 		  for ( int i = 0; i < ARRAYSIZE(g_ConceptInfos); i++ )
 		  {
@@ -558,7 +569,11 @@ void CAI_PlayerAlly::PrescheduleThink( void )
 			if ( SelectNonCombatSpeech( &selection ) )
 			{
 				SetSpeechTarget( selection.hSpeechTarget );
+#ifdef NEW_RESPONSE_SYSTEM
+				SpeakDispatchResponse( selection.concept.c_str(), &selection.Response );
+#else
 				SpeakDispatchResponse( selection.concept.c_str(), selection.Response );
+#endif
 				m_flNextIdleSpeechTime = gpGlobals->curtime + RandomFloat( 20,30 );
 			}
 			else
@@ -698,7 +713,11 @@ bool CAI_PlayerAlly::SelectInterjection()
 		if ( SelectIdleSpeech( &selection ) )
 		{
 			SetSpeechTarget( selection.hSpeechTarget );
+#ifdef NEW_RESPONSE_SYSTEM
+			SpeakDispatchResponse( selection.concept.c_str(), &selection.Response );
+#else
 			SpeakDispatchResponse( selection.concept.c_str(), selection.Response );
+#endif
 			return true;
 		}
 	}
@@ -763,11 +782,11 @@ void CAI_PlayerAlly::PostSpeakDispatchResponse( AIConcept_t concept, AI_Response
 		{
 			if ( bSaidHelloToNPC )
 			{
-				Warning("Q&A: '%s' said Hello to '%s' (concept %s)\n", GetDebugName(), GetSpeechTarget()->GetDebugName(), concept );
+				Warning("Q&A: '%s' said Hello to '%s' (concept %s)\n", GetDebugName(), GetSpeechTarget()->GetDebugName(), (const char*)concept );
 			}
 			else
 			{
-				Warning("Q&A: '%s' questioned '%s' (concept %s)\n", GetDebugName(), GetSpeechTarget()->GetDebugName(), concept );
+				Warning("Q&A: '%s' questioned '%s' (concept %s)\n", GetDebugName(), GetSpeechTarget()->GetDebugName(), (const char*)concept );
 			}
 			NDebugOverlay::HorzArrow( GetAbsOrigin(), GetSpeechTarget()->GetAbsOrigin(), 8, 0, 255, 0, 64, true, duration );
 		}
@@ -883,6 +902,18 @@ bool CAI_PlayerAlly::AskQuestionNow( CBaseEntity *pSpeechTarget, int iQARandomNu
 		m_iQARandomNumber = RandomInt(0, 100);
 
 	AISpeechSelection_t selection;
+#ifdef NEW_RESPONSE_SYSTEM
+	if (SelectSpeechResponse( concept, NULL, m_hPotentialSpeechTarget.Get(), &selection ))
+	{
+		SetSpeechTarget( selection.hSpeechTarget );
+		ClearPendingSpeech();
+
+		// Speak immediately
+		return SpeakDispatchResponse( selection.concept.c_str(), &selection.Response );
+	}
+
+	return false;
+#else
 	SelectSpeechResponse( concept, NULL, m_hPotentialSpeechTarget.Get(), &selection );
 
 	SetSpeechTarget( selection.hSpeechTarget );
@@ -890,6 +921,7 @@ bool CAI_PlayerAlly::AskQuestionNow( CBaseEntity *pSpeechTarget, int iQARandomNu
 
 	// Speak immediately
 	return SpeakDispatchResponse( selection.concept.c_str(), selection.Response );
+#endif
 }
 
 //-----------------------------------------------------------------------------
@@ -978,7 +1010,11 @@ void CAI_PlayerAlly::AnswerQuestion( CAI_PlayerAlly *pQuestioner, int iQARandomN
 		}
 
 		SetSpeechTarget( selection.hSpeechTarget );
+#ifdef NEW_RESPONSE_SYSTEM
+		SpeakDispatchResponse( selection.concept.c_str(), &selection.Response );
+#else
 		SpeakDispatchResponse( selection.concept.c_str(), selection.Response );
+#endif
 
 		// Prevent idle speech for a while
 		DeferAllIdleSpeech( random->RandomFloat( TALKER_DEFER_IDLE_SPEAK_MIN, TALKER_DEFER_IDLE_SPEAK_MAX ), GetSpeechTarget()->MyNPCPointer() );
@@ -1105,7 +1141,11 @@ void CAI_PlayerAlly::StartTask( const Task_t *pTask )
 	case TASK_TALKER_SPEAK_PENDING:
 		if ( !m_PendingConcept.empty() )
 		{
+#ifdef NEW_RESPONSE_SYSTEM
+			SpeakDispatchResponse( m_PendingConcept.c_str(), &m_PendingResponse );
+#else
 			SpeakDispatchResponse( m_PendingConcept.c_str(), m_PendingResponse );
+#endif
 			m_PendingConcept.erase();
 			TaskComplete();
 		}
@@ -1842,7 +1882,7 @@ bool CAI_PlayerAlly::RespondedTo( const char *ResponseConcept, bool bForce, bool
 	{
 		// We're being forced to respond to the event, probably because it's the
 		// player dying or something equally important. 
-		AI_Response response; 
+		AI_Response response;
 		bool result = SpeakFindResponse( response, ResponseConcept, NULL );
 		if ( result )
 		{
@@ -1850,7 +1890,11 @@ bool CAI_PlayerAlly::RespondedTo( const char *ResponseConcept, bool bForce, bool
 			if ( bCancelScene )
 				RemoveActorFromScriptedScenes( this, false );
 
+#ifdef NEW_RESPONSE_SYSTEM
+			return SpeakDispatchResponse( ResponseConcept, &response );
+#else
 			return SpeakDispatchResponse( ResponseConcept, response );
+#endif
 		}
 
 		return false;
