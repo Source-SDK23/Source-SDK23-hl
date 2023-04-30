@@ -304,6 +304,8 @@ $Project "Server (SDK23)"
 		{
 			$File "sdk23\weapon_camera.h"
 			$File "sdk23\weapon_camera.cpp"
+			$File "sdk23\env_portal_laser.h"
+			$File "sdk23\env_portal_laser.cpp"
 		}
 	}
 }

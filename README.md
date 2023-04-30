@@ -5,12 +5,13 @@ A fork of Mapbase with many additional gameplay elements and improvements.
 - Added FStop mechanic via `weapon_camera`
 
 ## Planned Changes/Additions
-- Add `env_laser_emitter`
-- Add `env_laser_catcher`
+- Add `env_portal_laser` (red thermal discouragement beam from `portal 2` with `P2CE` mechanics)
+- Add `env_laser_emitter` (entity which emmits `env_portal_laser`)
+- Add `env_laser_catcher` (entity which changes state when it is hit by an `env_portal_laser`)
 - Add `prop_weighted_cube`
-- Add `prop_schrodinger_cube`
+- Add `prop_schrodinger_cube` (cube which "teleports" an `env_portal_laser` which hits it to another linked cube)
 - Add `prop_wall_entity` (hardlight bridge)
-- Add `prop_wall_projector` (hardlight projector)
+- Add `prop_wall_projector` (projector which emits `prop_wall_entity`)
 - Add `trigger_faithplate`
 - Add functional portals
 - Add PBR Shading (from [`here`](https://developer.valvesoftware.com/wiki/Adding_PBR_to_Your_Mod))
