@@ -6983,6 +6983,163 @@ CPhysicsProp* CreatePhysicsProp( const char *pModelName, const Vector &vTraceSta
 
 //-----------------------------------------------------------------------------
 // Purpose: Scale the object to a new size, taking its render verts and physical verts into account
+// MODIFIED VERSION FOR USE WITH weapon_camera
+// 
+// Changes:
+// - Can now scale NPCs
+// - Does not scale bbox twice
+//-----------------------------------------------------------------------------
+bool UTIL_CreateScaledCameraPhysObject(CBaseAnimating* pInstance, float flScale)
+{
+	// FIXME: This needs to work for ragdolls!
+
+	// Get our object
+	IPhysicsObject* pObject = pInstance->VPhysicsGetObject();
+	if (pObject == NULL)
+	{
+		AssertMsg(0, "UTIL_CreateScaledCameraPhysObject: Failed to scale physics for object-- It has no physics.");
+		return false;
+	}
+
+	// See if our current physics object is motion disabled
+	bool bWasMotionDisabled = (pObject->IsMotionEnabled() == false);
+	bool bWasStatic = (pObject->IsStatic());
+
+	vcollide_t* pCollide = modelinfo->GetVCollide(pInstance->GetModelIndex());
+	if (pCollide == NULL || pCollide->solidCount == 0)
+		return NULL;
+
+	CPhysCollide* pNewCollide = pCollide->solids[0];	// FIXME: Needs to iterate over the solids
+
+	if (flScale != 1.0f)
+	{
+		// Create a query to get more information from the collision object
+		ICollisionQuery* pQuery = physcollision->CreateQueryModel(pCollide->solids[0]);	// FIXME: This should iterate over all solids!
+		if (pQuery == NULL)
+			return false;
+
+		// Create a container to hold all the convexes we'll create
+		const int nNumConvex = pQuery->ConvexCount();
+		CPhysConvex** pConvexes = (CPhysConvex**)stackalloc(sizeof(CPhysConvex*) * nNumConvex);
+
+		// For each convex, collect the verts and create a convex from it we'll retain for later
+		for (int i = 0; i < nNumConvex; i++)
+		{
+			int nNumTris = pQuery->TriangleCount(i);
+			int nNumVerts = nNumTris * 3;
+			// FIXME: Really?  stackalloc?
+			Vector* pVerts = (Vector*)stackalloc(sizeof(Vector) * nNumVerts);
+			Vector** ppVerts = (Vector**)stackalloc(sizeof(Vector*) * nNumVerts);
+			for (int j = 0; j < nNumTris; j++)
+			{
+				// Get all the verts for this triangle and scale them up
+				pQuery->GetTriangleVerts(i, j, pVerts + (j * 3));
+				*(pVerts + (j * 3)) *= flScale;
+				*(pVerts + (j * 3) + 1) *= flScale;
+				*(pVerts + (j * 3) + 2) *= flScale;
+
+				// Setup our pointers (blech!)
+				*(ppVerts + (j * 3)) = pVerts + (j * 3);
+				*(ppVerts + (j * 3) + 1) = pVerts + (j * 3) + 1;
+				*(ppVerts + (j * 3) + 2) = pVerts + (j * 3) + 2;
+			}
+
+			// Convert it back to a convex
+			pConvexes[i] = physcollision->ConvexFromVerts(ppVerts, nNumVerts);
+			Assert(pConvexes[i] != NULL);
+			if (pConvexes[i] == NULL)
+				return false;
+		}
+
+		// Clean up
+		physcollision->DestroyQueryModel(pQuery);
+
+		// Create a collision model from all the convexes
+		pNewCollide = physcollision->ConvertConvexToCollide(pConvexes, nNumConvex);
+		if (pNewCollide == NULL)
+			return false;
+	}
+
+	// Get our solid info
+	solid_t tmpSolid;
+	if (!PhysModelParseSolidByIndex(tmpSolid, pInstance, pInstance->GetModelIndex(), -1))
+		return false;
+
+	// Physprops get keyvalues that effect the mass, this block is to respect those fields when we scale
+	CPhysicsProp* pPhysInstance = dynamic_cast<CPhysicsProp*>(pInstance);
+	if (pPhysInstance)
+	{
+		if (pPhysInstance->GetMassScale() > 0)
+		{
+			tmpSolid.params.mass *= pPhysInstance->GetMassScale();
+		}
+
+		PhysSolidOverride(tmpSolid, pPhysInstance->GetPhysOverrideScript());
+	}
+
+	// Scale our mass up as well
+	tmpSolid.params.mass *= flScale;
+	tmpSolid.params.volume = physcollision->CollideVolume(pNewCollide);
+
+	// Get our surface prop info
+	int surfaceProp = -1;
+	if (tmpSolid.surfaceprop[0])
+	{
+		surfaceProp = physprops->GetSurfaceIndex(tmpSolid.surfaceprop);
+	}
+
+	// Now put it all back (phew!)
+	IPhysicsObject* pNewObject = NULL;
+	if (bWasStatic)
+	{
+		pNewObject = physenv->CreatePolyObjectStatic(pNewCollide, surfaceProp, pInstance->GetAbsOrigin(), pInstance->GetAbsAngles(), &tmpSolid.params);
+	}
+	else
+	{
+		pNewObject = physenv->CreatePolyObject(pNewCollide, surfaceProp, pInstance->GetAbsOrigin(), pInstance->GetAbsAngles(), &tmpSolid.params);
+	}
+	Assert(pNewObject);
+
+	pInstance->VPhysicsDestroyObject();
+	pInstance->VPhysicsSetObject(pNewObject);
+
+	// Increase our model bounds
+	//const model_t *pModel = modelinfo->GetModel( pInstance->GetModelIndex() );
+	//if ( pModel )
+	//{
+	//	Vector mins, maxs;
+	//	modelinfo->GetModelBounds( pModel, mins, maxs );
+	//	pInstance->SetCollisionBounds( mins*flScale, maxs*flScale );
+	//}
+	// ^ the above is already handled by SetModelScale( flScale )
+
+	// Scale the base model as well
+	pInstance->SetModelScale(flScale, 0);
+
+	if (pInstance->GetParent())
+	{
+		pNewObject->SetShadow(1e4, 1e4, false, false);
+		pNewObject->UpdateShadow(pInstance->GetAbsOrigin(), pInstance->GetAbsAngles(), false, 0);
+	}
+
+	if (bWasMotionDisabled)
+	{
+		pNewObject->EnableMotion(false);
+	}
+	else
+	{
+		// Make sure we start awake!
+		pNewObject->Wake();
+	}
+
+	// Blargh
+	pInstance->SetScaledPhysics((flScale != 1.0f) ? pNewObject : NULL);
+
+	return true;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Scale the object to a new size, taking its render verts and physical verts into account
 //-----------------------------------------------------------------------------
 bool UTIL_CreateScaledPhysObject( CBaseAnimating *pInstance, float flScale )
 {
@@ -7103,17 +7260,16 @@ bool UTIL_CreateScaledPhysObject( CBaseAnimating *pInstance, float flScale )
 	pInstance->VPhysicsSetObject( pNewObject );
 
 	// Increase our model bounds
-	//const model_t *pModel = modelinfo->GetModel( pInstance->GetModelIndex() );
-	//if ( pModel )
-	//{
-	//	Vector mins, maxs;
-	//	modelinfo->GetModelBounds( pModel, mins, maxs );
-	//	pInstance->SetCollisionBounds( mins*flScale, maxs*flScale );
-	//}
-	// ^ the above is already handled by SetModelScale( flScale )
+	const model_t *pModel = modelinfo->GetModel( pInstance->GetModelIndex() );
+	if ( pModel )
+	{
+		Vector mins, maxs;
+		modelinfo->GetModelBounds( pModel, mins, maxs );
+		pInstance->SetCollisionBounds( mins*flScale, maxs*flScale );
+	}
 
 	// Scale the base model as well
-	pInstance->SetModelScale( flScale );
+	pInstance->SetModelScale( flScale, 0 );
 
 	if ( pInstance->GetParent() )
 	{

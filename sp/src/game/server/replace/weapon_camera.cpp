@@ -24,7 +24,7 @@
 
 #define	CAMERA_MAX_INVENTORY 3 // Maximum inventory  slots
 
-static const double CameraScales[] = {
+static const float CameraScales[] = {
 	0.25, 0.5, 1.0, 2.0, 4.0
 };
 static const int CameraScalesLen = 5; // Max number of possible scales
@@ -279,6 +279,7 @@ void CWeaponCamera::PrimaryAttack(void)
 		PlacementThink();
 		camEntity.RestoreEntity();
 		m_vInventory.Remove(m_iCurrentInventorySlot); // Remove from inventory
+		m_iCameraState = CAMERA_NORMAL;
 
 		m_iCurrentInventorySlot = max(m_vInventory.Count() - 1, 0); // Set inventory slot to either 0 or last item
 		break;
@@ -338,10 +339,12 @@ void CWeaponCamera::PlacementThink(void)
 	UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
 
 	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
-	CBaseEntity* baseEntity = camEntity.GetEntity();
+	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
+
+	baseEntity->UpdateModelScale();
 
 	baseEntity->SetAbsOrigin(tr.endpos);
-	baseEntity->SetAbsAngles(baseEntity->GetAbsAngles() + QAngle(0, 1, 0));
+	baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
 	camEntity.RestoreEntity();
 
 	SetNextThink(gpGlobals->curtime + 0.1f);
@@ -397,6 +400,10 @@ void CWeaponCamera::SetSlot(int slot)
 //-----------------------------------------------------------------------------
 void CWeaponCamera::SetScale(bool scaleUp)
 {
+	if (gpGlobals->curtime > m_flNextScale) {
+		return; // Wait until next scale
+	}
+
 	CBasePlayer* pOwner = ToBasePlayer(GetOwner());
 
 	if (pOwner == NULL)
@@ -428,5 +435,7 @@ void CWeaponCamera::SetScale(bool scaleUp)
 	}
 
 	Msg("Scaling object...");
-	UTIL_CreateScaledPhysObject(placementEntity, CameraScales[currentScaleIndex]);
+	UTIL_CreateScaledCameraPhysObject(placementEntity, CameraScales[currentScaleIndex]);
+	//placementEntity->SetModelScale(CameraScales[currentScaleIndex], 0);
+	m_flNextScale = gpGlobals->curtime + 0.5f;
 }

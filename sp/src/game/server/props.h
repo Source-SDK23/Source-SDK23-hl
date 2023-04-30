@@ -486,6 +486,7 @@ public:
 CPhysicsProp* CreatePhysicsProp( const char *pModelName, const Vector &vTraceStart, const Vector &vTraceEnd, const IHandleEntity *pTraceIgnore, bool bRequireVCollide, const char *pClassName="physics_prop" );
 
 bool UTIL_CreateScaledPhysObject( CBaseAnimating *pInstance, float flScale );
+bool UTIL_CreateScaledCameraPhysObject( CBaseAnimating* pInstance, float flScale );
 
 float GetBreakableDamage( const CTakeDamageInfo &inputInfo, IBreakableWithPropData *pProp = NULL );
 int PropBreakablePrecacheAll( string_t modelName );
