@@ -13,6 +13,7 @@
 #include "soundenvelope.h"
 #include "IEffects.h"
 #include "engine/IEngineSound.h"
+#include "vphysics/friction.h"
 #include "weapon_camera.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
@@ -372,6 +373,23 @@ void CWeaponCamera::PlacementThink(void)
 	baseEntity->SetAbsOrigin(tr.endpos);
 	baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
 	camEntity.RestoreEntity();
+
+	IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
+	
+	Vector velocity;
+	AngularImpulse angVel;
+	pObject->GetVelocity(&velocity, &angVel);
+	PhysComputeSlideDirection(pObject, velocity, angVel, &velocity, &angVel, pObject->GetMass());
+	pObject->SetVelocityInstantaneous(&velocity, NULL);
+
+	IPhysicsFrictionSnapshot* pSnapshot = pObject->CreateFrictionSnapshot();
+	while (pSnapshot->IsValid())
+	{
+		IPhysicsObject* pOther = pSnapshot->GetObject(1);
+		Vector hitPoint;
+		pSnapshot->GetContactPoint(hitPoint);
+		pSnapshot->NextFrictionData();
+	}
 
 	SetNextThink(gpGlobals->curtime + 0.1f);
 }
