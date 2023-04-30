@@ -6989,7 +6989,7 @@ CPhysicsProp* CreatePhysicsProp( const char *pModelName, const Vector &vTraceSta
 // - Can now scale NPCs
 // - Does not scale bbox twice
 //-----------------------------------------------------------------------------
-bool UTIL_CreateScaledCameraPhysObject(CBaseAnimating* pInstance, float flScale)
+bool UTIL_CreateScaledCameraPhysObject(CBaseAnimating* pInstance, float flScale, float scaleRate)
 {
 	// FIXME: This needs to work for ragdolls!
 

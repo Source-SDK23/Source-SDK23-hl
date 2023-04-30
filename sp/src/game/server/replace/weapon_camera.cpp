@@ -23,6 +23,14 @@
 
 
 #define	CAMERA_MAX_INVENTORY 3 // Maximum inventory  slots
+#define CAMERA_SCALE_RATE 0.3f
+
+#define CAMERA_ZOOM_SOUND "Tile.StepRight"						// Sound for switching to zoom mode
+#define CAMERA_PLACEMENT_SOUND "Cardboard.ImpactSoft"			// Sound for switching to placement mode
+#define CAMERA_PLACE_SOUND "Metal_Box.ImpactSoft"				// Sound for placing object
+#define CAMERA_CAPTURE_SOUND "NPC_CScanner.TakePhoto"			// Sound for capturing object
+#define CAMERA_SCALE_UP_SOUND "NPC_Alyx.Climb_Pipe_strain_1"	// Sound for scaling object up
+#define CAMERA_SCALE_DOWN_SOUND "NPC_Alyx.Climb_Pipe_strain_2"	// Sound for scaling object down
 
 static const float CameraScales[] = {
 	0.25, 0.5, 1.0, 2.0, 4.0
@@ -163,6 +171,13 @@ void CWeaponCamera::Precache(void)
 	//PrecacheScriptSound("Flare.Touch");
 	//PrecacheScriptSound("Weapon_FlareGun.Burn");
 	//UTIL_PrecacheOther("env_flare");
+
+	PrecacheScriptSound( CAMERA_ZOOM_SOUND );
+	PrecacheScriptSound( CAMERA_PLACEMENT_SOUND );
+	PrecacheScriptSound( CAMERA_PLACE_SOUND );
+	PrecacheScriptSound( CAMERA_CAPTURE_SOUND );
+	PrecacheScriptSound( CAMERA_SCALE_UP_SOUND );
+	PrecacheScriptSound( CAMERA_SCALE_DOWN_SOUND );
 }
 
 //-----------------------------------------------------------------------------
@@ -238,6 +253,9 @@ void CWeaponCamera::PrimaryAttack(void)
 	Vector facingVector;
 	trace_t tr;
 
+	// For sounds
+	CPASAttenuationFilter filter(this);
+
 	switch (m_iCameraState) {
 	case CAMERA_NORMAL:
 		SetZoom(true); // Zoom in
@@ -270,6 +288,7 @@ void CWeaponCamera::PrimaryAttack(void)
 			camEntity.CaptureEntity();
 
 			m_vInventory.AddToTail(camEntity);
+			EmitSound(filter, entindex(), CAMERA_CAPTURE_SOUND);
 		}
 		break;
 
@@ -282,6 +301,7 @@ void CWeaponCamera::PrimaryAttack(void)
 		m_iCameraState = CAMERA_NORMAL;
 
 		m_iCurrentInventorySlot = max(m_vInventory.Count() - 1, 0); // Set inventory slot to either 0 or last item
+		EmitSound(filter, entindex(), CAMERA_PLACE_SOUND);
 		break;
 	}
 }
@@ -320,6 +340,11 @@ void CWeaponCamera::SecondaryAttack(void)
 	m_iCameraState = CAMERA_PLACEMENT;
 	SetThink(&CWeaponCamera::PlacementThink);
 
+	// Play placement mode sound
+	CPASAttenuationFilter filter(this);
+	EmitSound(filter, entindex(), CAMERA_PLACEMENT_SOUND);
+
+	m_flNextScale = gpGlobals->curtime;
 	SetNextThink(gpGlobals->curtime + 0.1f);
 }
 
@@ -367,6 +392,10 @@ void CWeaponCamera::SetZoom(bool zoom)
 		UserMessageBegin(filter, "ShowCameraViewfinder");
 		WRITE_BYTE(1);
 		MessageEnd();
+
+		// Play zoom sound
+		CPASAttenuationFilter filter(this);
+		EmitSound(filter, entindex(), CAMERA_ZOOM_SOUND);
 	}
 	else {
 		pOwner->SetFOV(this, 0, 0.1f);
@@ -402,7 +431,7 @@ void CWeaponCamera::SetSlot(int slot)
 //-----------------------------------------------------------------------------
 void CWeaponCamera::SetScale(bool scaleUp)
 {
-	if (gpGlobals->curtime > m_flNextScale) {
+	if (gpGlobals->curtime < m_flNextScale) {
 		return; // Wait until next scale
 	}
 
@@ -412,9 +441,11 @@ void CWeaponCamera::SetScale(bool scaleUp)
 		return;
 
 	if (m_iCameraState != CAMERA_PLACEMENT) {
+		Msg("Cannot scale, not in placement mode");
 		return;
 	}
 
+	Msg("Preparing to scale");
 	CBaseAnimating* placementEntity = dynamic_cast<CBaseAnimating*>(m_vInventory[m_iCurrentInventorySlot].GetEntity());
 
 	// Get current scale index
@@ -426,18 +457,21 @@ void CWeaponCamera::SetScale(bool scaleUp)
 		currentScaleIndex++;
 	}
 
-	if (scaleUp && currentScaleIndex < CameraScalesLen-1) {
+	CPASAttenuationFilter filter(this);
+	if (scaleUp && currentScaleIndex < CameraScalesLen) {
 		currentScaleIndex++;
+		EmitSound(filter, entindex(), CAMERA_SCALE_UP_SOUND);
 	}
 	else if (!scaleUp && currentScaleIndex > 0) {
 		currentScaleIndex--;
+		EmitSound(filter, entindex(), CAMERA_SCALE_DOWN_SOUND);
 	}
 	else {
 		return;
 	}
 
 	Msg("Scaling object...");
-	UTIL_CreateScaledCameraPhysObject(placementEntity, CameraScales[currentScaleIndex]);
+	UTIL_CreateScaledCameraPhysObject(placementEntity, CameraScales[currentScaleIndex], CAMERA_SCALE_RATE);
 	//placementEntity->SetModelScale(CameraScales[currentScaleIndex], 0);
-	m_flNextScale = gpGlobals->curtime + 0.5f;
+	m_flNextScale = gpGlobals->curtime + CAMERA_SCALE_RATE;
 }
