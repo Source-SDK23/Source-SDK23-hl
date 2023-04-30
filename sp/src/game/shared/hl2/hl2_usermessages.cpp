@@ -52,6 +52,8 @@ void RegisterUserMessages( void )
 	usermessages->Register( "AchievementEvent", -1 );
 	usermessages->Register( "UpdateJalopyRadar", -1 );
 
+	usermessages->Register("ShowCameraViewfinder", 1); // show the camera's viewfinder
+
 #ifndef _X360
 	// NVNT register haptic user messages
 	RegisterHapticMessages();
