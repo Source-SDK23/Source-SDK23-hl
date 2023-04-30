@@ -1,1 +1,1 @@
-devtools\bin\vpc.exe +maptools /mksln maptools.sln
+devtools\bin\vpc.exe +maptools /mksln maptools_sdk23.sln

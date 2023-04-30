@@ -1,5 +1,5 @@
 #!/bin/bash
 
 pushd `dirname $0`
-devtools/bin/vpc /replace +shaders /mksln shaders
+devtools/bin/vpc /sdk23 +shaders /mksln shaders_sdk23
 popd

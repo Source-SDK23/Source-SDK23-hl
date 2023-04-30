@@ -1,1 +1,1 @@
-devtools\bin\vpc.exe /replace +everything /mksln everything.sln
+devtools\bin\vpc.exe /sdk23 +everything /mksln everything_sdk23.sln

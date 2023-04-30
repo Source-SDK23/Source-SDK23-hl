@@ -1,1 +1,1 @@
-devtools\bin\vpc.exe /replace +game /mksln games.sln
+devtools\bin\vpc.exe /sdk23 +game /mksln games_sdk23.sln

@@ -1,5 +1,5 @@
 #!/bin/bash
 
 pushd `dirname $0`
-devtools/bin/vpc /replace +game /mksln games
+devtools/bin/vpc /sdk23 +game /mksln games_sdk23
 popd

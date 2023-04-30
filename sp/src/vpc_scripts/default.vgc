@@ -12,7 +12,7 @@ $Games
 {
 	"EPISODIC"
 	"HL2"
-	"REPLACE"
+	"SDK23"
 }
 
 // Makes the VPC scripts work in the SDK's context

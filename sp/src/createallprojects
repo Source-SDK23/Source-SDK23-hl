@@ -1,5 +1,5 @@
 #!/bin/bash
 
 pushd `dirname $0`
-devtools/bin/vpc /replace +everything /mksln everything
+devtools/bin/vpc /sdk23 +everything /mksln everything_sdk23
 popd
