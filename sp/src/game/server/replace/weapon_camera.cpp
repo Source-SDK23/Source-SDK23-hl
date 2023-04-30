@@ -305,6 +305,7 @@ void CWeaponCamera::SecondaryAttack(void)
 		SetThink(NULL);
 		m_vInventory[m_iCurrentInventorySlot].HideEntity();
 		m_iCameraState = CAMERA_NORMAL;
+		return;
 	}
 
 	// Switch to placement mode
@@ -387,6 +388,7 @@ void CWeaponCamera::SetSlot(int slot)
 
 	if (slot >= m_vInventory.Count() || slot < 0) {
 		Msg("Invalid Slot, OOB");
+		return;
 	}
 
 	m_iCurrentInventorySlot = slot;
