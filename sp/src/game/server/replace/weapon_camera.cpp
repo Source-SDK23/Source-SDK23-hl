@@ -458,7 +458,7 @@ void CWeaponCamera::SetScale(bool scaleUp)
 	}
 
 	CPASAttenuationFilter filter(this);
-	if (scaleUp && currentScaleIndex < CameraScalesLen) {
+	if (scaleUp && currentScaleIndex < CameraScalesLen-1) {
 		currentScaleIndex++;
 		EmitSound(filter, entindex(), CAMERA_SCALE_UP_SOUND);
 	}
