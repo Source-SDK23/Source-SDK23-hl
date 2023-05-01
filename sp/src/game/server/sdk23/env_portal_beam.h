@@ -14,7 +14,6 @@
 #include "baseentity.h"
 #include "beam_shared.h"
 #include "entityoutput.h"
-#include "sdk23/sdk23_const.h"
 
 class CSprite;
 
@@ -26,9 +25,12 @@ public:
 	void	Spawn(void);
 	void	Precache(void);
 
-	void	TurnOn(void);
-	void	TurnOff(void);
+	bool	TurnOn(void);
+	bool	TurnOff(void);
 	bool	GetState(void);
+
+	void	SetBeamColour(int r, int g, int b);
+	void	SetSpriteColour(int r, int g, int b);
 
 	void	BeamThink(void);
 
@@ -44,9 +46,8 @@ private:
 	float m_fNextSparkTime;
 
 	bool m_bStartDisabled;
-	bool m_bDoDamage;
+	bool m_bInstaKill;
 	bool m_bAutoAimBeam;
-	SkinType m_bRustedSkin;
 
 	CNetworkColor32(m_clrBeamColour);
 	CNetworkColor32(m_clrSpriteColour);

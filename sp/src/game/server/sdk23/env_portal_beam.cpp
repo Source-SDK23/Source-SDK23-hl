@@ -22,9 +22,7 @@ DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
 
 // Keyfields
 DEFINE_KEYFIELD(m_bStartDisabled, FIELD_BOOLEAN, "startstate"),
-DEFINE_KEYFIELD(m_bDoDamage, FIELD_BOOLEAN, "lethaldamage"),
-DEFINE_KEYFIELD(m_bAutoAimBeam, FIELD_BOOLEAN, "autoaimenabled"),
-DEFINE_KEYFIELD(m_bRustedSkin, FIELD_INTEGER, "skin"),
+DEFINE_KEYFIELD(m_bInstaKill, FIELD_BOOLEAN, "lethaldamage"),
 
 DEFINE_KEYFIELD(m_clrBeamColour, FIELD_COLOR32, "beamcolor"),
 DEFINE_KEYFIELD(m_clrSpriteColour, FIELD_COLOR32, "spritecolor"),
@@ -66,6 +64,8 @@ void CEnvPortalBeam::Spawn(void)
 	int m_spriteTexture = PrecacheModel(STRING(MAKE_STRING("sprites/laser.spr")));
 	SetTexture(m_spriteTexture);
 	SetColor(m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b);
+	SetRenderMode(kRenderGlow);
+	SetBrightness(255);
 
 	PointsInit(GetLocalOrigin(), GetLocalOrigin());
 
@@ -140,20 +140,29 @@ void CEnvPortalBeam::InputToggle(inputdata_t& inputdata)
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEnvPortalBeam::TurnOff(void)
+bool CEnvPortalBeam::TurnOff(void)
 {
+	if (!GetState()) {
+		return false;
+	}
+
 	AddEffects(EF_NODRAW);
 
 	SetNextThink(TICK_NEVER_THINK);
 	SetThink(NULL);
+	return true;
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEnvPortalBeam::TurnOn(void)
+bool CEnvPortalBeam::TurnOn(void)
 {
+	if (GetState()) {
+		return false;
+	}
+
 	RemoveEffects(EF_NODRAW);
 
 	m_flFireTime = gpGlobals->curtime;
@@ -165,6 +174,20 @@ void CEnvPortalBeam::TurnOn(void)
 	// the beam in the wrong place for one frame since we cleared the nodraw flag.
 	//
 	BeamThink();
+	return true;
+}
+
+void CEnvPortalBeam::SetBeamColour(int r, int g, int b) {
+	m_clrBeamColour.SetR(r);
+	m_clrBeamColour.SetG(g);
+	m_clrBeamColour.SetB(b);
+	SetColor(r, g, b);
+}
+
+void CEnvPortalBeam::SetSpriteColour(int r, int g, int b) {
+	m_clrSpriteColour.SetR(r);
+	m_clrSpriteColour.SetG(g);
+	m_clrSpriteColour.SetB(b);
 }
 
 //-----------------------------------------------------------------------------
