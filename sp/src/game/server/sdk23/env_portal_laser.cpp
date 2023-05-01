@@ -11,13 +11,13 @@
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
+#include <particle_system.h>
 
 LINK_ENTITY_TO_CLASS(env_portal_laser, CEnvPortalLaser);
 
 BEGIN_DATADESC(CEnvPortalLaser)
 
-DEFINE_FIELD(m_pSprite, FIELD_CLASSPTR),
-DEFINE_FIELD(m_firePosition, FIELD_VECTOR),
+DEFINE_FIELD(m_hEndParticles, FIELD_EHANDLE),
 
 // Function Pointers
 DEFINE_FUNCTION(LaserThink),
@@ -55,22 +55,12 @@ void CEnvPortalLaser::Spawn(void)
 
 	PointsInit(GetLocalOrigin(), GetLocalOrigin());
 
+	CParticleSystem* endParticles = (CParticleSystem*) CreateEntityByName("info_particle_system");
+	endParticles->KeyValue("effect_name", "discouragement_beam_sparks");
+	endParticles->KeyValue("start_active", 1);
+	m_hEndParticles = endParticles;
+
 	Precache();
-
-	if (!m_pSprite && m_iszSpriteName != NULL_STRING)
-	{
-		m_pSprite = CSprite::SpriteCreate(STRING(m_iszSpriteName), GetAbsOrigin(), TRUE);
-	}
-	else
-	{
-		m_pSprite = NULL;
-	}
-
-	if (m_pSprite)
-	{
-		m_pSprite->SetParent(GetMoveParent());
-		m_pSprite->SetTransparency(kRenderGlow, m_clrRender->r, m_clrRender->g, m_clrRender->b, m_clrRender->a, m_nRenderFX);
-	}
 
 	if (GetEntityName() != NULL_STRING && !(m_spawnflags & SF_BEAM_STARTON))
 	{
@@ -89,8 +79,6 @@ void CEnvPortalLaser::Spawn(void)
 void CEnvPortalLaser::Precache(void)
 {
 	SetModelIndex(PrecacheModel(STRING(GetModelName())));
-	if (m_iszSpriteName != NULL_STRING)
-		PrecacheModel(STRING(m_iszSpriteName));
 }
 
 
@@ -151,8 +139,6 @@ void CEnvPortalLaser::InputToggle(inputdata_t& inputdata)
 void CEnvPortalLaser::TurnOff(void)
 {
 	AddEffects(EF_NODRAW);
-	if (m_pSprite)
-		m_pSprite->TurnOff();
 
 	SetNextThink(TICK_NEVER_THINK);
 	SetThink(NULL);
@@ -165,8 +151,6 @@ void CEnvPortalLaser::TurnOff(void)
 void CEnvPortalLaser::TurnOn(void)
 {
 	RemoveEffects(EF_NODRAW);
-	if (m_pSprite)
-		m_pSprite->TurnOn();
 
 	m_flFireTime = gpGlobals->curtime;
 
@@ -195,11 +179,11 @@ void CEnvPortalLaser::LaserThink(void)
 	UTIL_TraceLine(GetAbsOrigin(), GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, this, COLLISION_GROUP_NONE, &tr);
 	
 	SetAbsEndPos(tr.endpos);
-	if (m_pSprite)
-	{
-		UTIL_SetOrigin(m_pSprite, tr.endpos);
-	}
-	DoSparks(GetAbsStartPos(), tr.endpos);
+	//DoSparks(GetAbsStartPos(), tr.endpos);
+	CParticleSystem* endParticles = dynamic_cast<CParticleSystem*>(m_hEndParticles.Get());
+	endParticles->SetAbsOrigin(tr.endpos);
+	endParticles->SetAbsAngles(GetAbsAngles());
+
 	SetNextThink(gpGlobals->curtime);
 }
 

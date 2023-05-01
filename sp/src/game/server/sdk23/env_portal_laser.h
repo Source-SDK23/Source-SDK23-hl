@@ -15,7 +15,6 @@
 #include "beam_shared.h"
 #include "entityoutput.h"
 
-
 class CSprite;
 
 
@@ -38,11 +37,8 @@ public:
 
 	DECLARE_DATADESC();
 
-	CSprite* m_pSprite;
-	string_t m_iszSpriteName=MAKE_STRING("sprites/laserdot.spr");
-	Vector  m_firePosition;
-
 	COutputEvent	m_OnTouchedByEntity;
+	EHANDLE m_hEndParticles;
 };
 
 #endif // ENVLASER_H
