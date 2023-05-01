@@ -130,8 +130,9 @@ $Project "Client (SDK23)"
 
 		$Folder "SDK23"
 		{
-			$File "sdk23\camera_hud.h"
-			$File "sdk23\camera_hud.cpp"
+			$File	"$SRCDIR\game\shared\sdk23\sdk23_const.h"
+			$File	"sdk23\camera_hud.h"
+			$File	"sdk23\camera_hud.cpp"
 		}
 	}
 	

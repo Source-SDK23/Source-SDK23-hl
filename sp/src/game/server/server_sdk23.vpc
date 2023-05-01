@@ -302,10 +302,17 @@ $Project "Server (SDK23)"
 
 		$Folder "SDK23"
 		{
-			$File "sdk23\weapon_camera.h"
-			$File "sdk23\weapon_camera.cpp"
-			$File "sdk23\env_portal_laser.h"
-			$File "sdk23\env_portal_laser.cpp"
+			$File	"$SRCDIR\game\shared\sdk23\sdk23_const.h"
+			$File	"sdk23\weapon_camera.h"
+			$File	"sdk23\weapon_camera.cpp"
+			$File	"sdk23\env_portal_beam.h"
+			$File	"sdk23\env_portal_beam.cpp"
+			$File	"sdk23\env_portal_laser.h"
+			$File	"sdk23\env_portal_laser.cpp"
+			$File	"sdk23\prop_laser_catcher.h"
+			$File	"sdk23\prop_laser_catcher.cpp"
+			$File	"sdk23\prop_laser_relay.h"
+			$File	"sdk23\prop_laser_relay.cpp"
 		}
 	}
 }
