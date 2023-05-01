@@ -25,34 +25,24 @@ class CEnvPortalLaser : public CBeam
 public:
 	void	Spawn(void);
 	void	Precache(void);
-	bool	KeyValue(const char* szKeyName, const char* szValue);
 
 	void	TurnOn(void);
 	void	TurnOff(void);
 	int		IsOn(void);
 
-	void	FireAtPoint(trace_t& point);
-	void	StrikeThink(void);
+	void	LaserThink(void);
 
 	void InputTurnOn(inputdata_t& inputdata);
 	void InputTurnOff(inputdata_t& inputdata);
 	void InputToggle(inputdata_t& inputdata);
-#ifdef MAPBASE
-	void InputSetTarget(inputdata_t& inputdata) { m_iszLaserTarget = inputdata.value.StringID(); }
-#endif
 
 	DECLARE_DATADESC();
 
-	string_t m_iszLaserTarget;	// Name of entity or entities to strike at, randomly picked if more than one match.
 	CSprite* m_pSprite;
-	string_t m_iszSpriteName;
+	string_t m_iszSpriteName=MAKE_STRING("sprites/laserdot.spr");
 	Vector  m_firePosition;
 
-#ifdef MAPBASE
 	COutputEvent	m_OnTouchedByEntity;
-#endif
-
-	float	m_flStartFrame;
 };
 
-#endif // ENVPORTALLASER_H
+#endif // ENVLASER_H

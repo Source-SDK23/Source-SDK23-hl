@@ -1,7 +1,6 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//=========                BASED ON ENV_LASER CODE                 ============//
 //
-// Purpose: A special kind of beam effect that traces from its start position to
-//			its end position and stops if it hits anything.
+// Purpose: PORTAL. LASER.
 //
 // $NoKeywords: $
 //=============================================================================//
@@ -17,14 +16,11 @@ LINK_ENTITY_TO_CLASS(env_portal_laser, CEnvPortalLaser);
 
 BEGIN_DATADESC(CEnvPortalLaser)
 
-DEFINE_KEYFIELD(m_iszLaserTarget, FIELD_STRING, "LaserTarget"),
 DEFINE_FIELD(m_pSprite, FIELD_CLASSPTR),
-DEFINE_KEYFIELD(m_iszSpriteName, FIELD_STRING, "EndSprite"),
 DEFINE_FIELD(m_firePosition, FIELD_VECTOR),
-DEFINE_KEYFIELD(m_flStartFrame, FIELD_FLOAT, "framestart"),
 
 // Function Pointers
-DEFINE_FUNCTION(StrikeThink),
+DEFINE_FUNCTION(LaserThink),
 
 // Input functions
 DEFINE_INPUTFUNC(FIELD_VOID, "TurnOn", InputTurnOn),
@@ -43,16 +39,19 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 void CEnvPortalLaser::Spawn(void)
 {
-	if (!GetModelName())
-	{
-		SetThink(&CEnvPortalLaser::SUB_Remove);
-		return;
-	}
-
 	SetSolid(SOLID_NONE);							// Remove model & collisions
-	SetThink(&CEnvPortalLaser::StrikeThink);
+	SetThink(&CEnvPortalLaser::LaserThink);
 
+	BeamInit("sprites/laser.spr", 2.0f);
+	m_spawnflags = SF_BEAM_SPARKEND;
+	
+	SetWidth(2.0f);
 	SetEndWidth(GetWidth());				// Note: EndWidth is not scaled
+	SetNoise(0);
+	SetScrollRate(0);
+	SetModelName(MAKE_STRING("sprites/laser.spr"));
+	int m_spriteTexture = PrecacheModel(STRING(MAKE_STRING("sprites/laser.spr")));
+	SetTexture(m_spriteTexture);
 
 	PointsInit(GetLocalOrigin(), GetLocalOrigin());
 
@@ -92,36 +91,6 @@ void CEnvPortalLaser::Precache(void)
 	SetModelIndex(PrecacheModel(STRING(GetModelName())));
 	if (m_iszSpriteName != NULL_STRING)
 		PrecacheModel(STRING(m_iszSpriteName));
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-bool CEnvPortalLaser::KeyValue(const char* szKeyName, const char* szValue)
-{
-	if (FStrEq(szKeyName, "width"))
-	{
-		SetWidth(atof(szValue));
-	}
-	else if (FStrEq(szKeyName, "NoiseAmplitude"))
-	{
-		SetNoise(atoi(szValue));
-	}
-	else if (FStrEq(szKeyName, "TextureScroll"))
-	{
-		SetScrollRate(atoi(szValue));
-	}
-	else if (FStrEq(szKeyName, "texture"))
-	{
-		SetModelName(AllocPooledString(szValue));
-	}
-	else
-	{
-		BaseClass::KeyValue(szKeyName, szValue);
-	}
-
-	return true;
 }
 
 
@@ -201,59 +170,36 @@ void CEnvPortalLaser::TurnOn(void)
 
 	m_flFireTime = gpGlobals->curtime;
 
-	SetThink(&CEnvPortalLaser::StrikeThink);
+	SetThink(&CEnvPortalLaser::LaserThink);
 
 	//
-	// Call StrikeThink here to update the end position, otherwise we will see
+	// Call LaserThink here to update the end position, otherwise we will see
 	// the beam in the wrong place for one frame since we cleared the nodraw flag.
 	//
-	StrikeThink();
+	LaserThink();
 }
 
 
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CEnvPortalLaser::FireAtPoint(trace_t& tr)
+void CEnvPortalLaser::LaserThink(void)
 {
+	// Create Vector for direction
+	Vector vecDir;
+	// Take the Player's EyeAngles and turn it into a direction
+	AngleVectors(GetAbsAngles(), &vecDir);
+
+	trace_t tr; // Create our trace_t class to hold the end result
+	// Do the TraceLine, and write our results to our trace_t class, tr.
+	UTIL_TraceLine(GetAbsOrigin(), GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, this, COLLISION_GROUP_NONE, &tr);
+	
 	SetAbsEndPos(tr.endpos);
 	if (m_pSprite)
 	{
 		UTIL_SetOrigin(m_pSprite, tr.endpos);
 	}
-
-	// Apply damage and do sparks every 1/10th of a second.
-	if (gpGlobals->curtime >= m_flFireTime + 0.1)
-	{
-#ifdef MAPBASE
-		if (tr.fraction != 1.0 && tr.m_pEnt && !tr.m_pEnt->IsWorld())
-		{
-			m_OnTouchedByEntity.FireOutput(tr.m_pEnt, this);
-		}
-#endif
-		BeamDamage(&tr);
-		DoSparks(GetAbsStartPos(), tr.endpos);
-	}
-}
-
-
-//-----------------------------------------------------------------------------
-// Purpose: 
-//-----------------------------------------------------------------------------
-void CEnvPortalLaser::StrikeThink(void)
-{
-	CBaseEntity* pEnd = RandomTargetname(STRING(m_iszLaserTarget));
-
-	Vector vecFireAt = GetAbsEndPos();
-	if (pEnd)
-	{
-		vecFireAt = pEnd->GetAbsOrigin();
-	}
-
-	trace_t tr;
-
-	UTIL_TraceLine(GetAbsOrigin(), vecFireAt, MASK_SOLID, NULL, COLLISION_GROUP_NONE, &tr);
-	FireAtPoint(tr);
+	DoSparks(GetAbsStartPos(), tr.endpos);
 	SetNextThink(gpGlobals->curtime);
 }
 
