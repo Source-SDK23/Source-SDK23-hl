@@ -23,6 +23,7 @@ DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
 // Keyfields
 DEFINE_KEYFIELD(m_bStartDisabled, FIELD_BOOLEAN, "startstate"),
 DEFINE_KEYFIELD(m_bDoDamage, FIELD_BOOLEAN, "lethaldamage"),
+DEFINE_KEYFIELD(m_bAutoAimLaser, FIELD_BOOLEAN, "autoaimenabled")
 
 // Function Pointers
 DEFINE_FUNCTION(LaserThink),

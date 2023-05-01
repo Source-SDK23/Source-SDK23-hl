@@ -44,7 +44,7 @@ private:
 
 	bool m_bStartDisabled;
 	bool m_bDoDamage;
-	bool m_bAutoaimLaser;
+	bool m_bAutoAimLaser;
 	bool m_bRustedSkin;
 
 	CNetworkColor32(m_clrBeamColour);
