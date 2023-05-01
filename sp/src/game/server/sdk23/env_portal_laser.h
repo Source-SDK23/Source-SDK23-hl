@@ -35,10 +35,22 @@ public:
 	void InputTurnOff(inputdata_t& inputdata);
 	void InputToggle(inputdata_t& inputdata);
 
+	COutputEvent	m_OnTouchedByEntity;
+
 	DECLARE_DATADESC();
 
-	COutputEvent	m_OnTouchedByEntity;
-	EHANDLE m_hEndParticles;
+private:
+	float m_fNextSparkTime;
+
+	bool m_bStartDisabled;
+	bool m_bDoDamage;
+	bool m_bAutoaimLaser;
+	bool m_bRustedSkin;
+
+	CNetworkColor32(m_clrBeamColour);
+	CNetworkColor32(m_clrSpriteColour);
+
+	bool m_bDisableCollision;
 };
 
 #endif // ENVLASER_H

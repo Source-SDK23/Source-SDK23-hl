@@ -8,6 +8,7 @@
 #include "cbase.h"
 #include "env_portal_laser.h"
 #include "Sprite.h"
+#include "IEffects.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -17,7 +18,11 @@ LINK_ENTITY_TO_CLASS(env_portal_laser, CEnvPortalLaser);
 
 BEGIN_DATADESC(CEnvPortalLaser)
 
-DEFINE_FIELD(m_hEndParticles, FIELD_EHANDLE),
+DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
+
+// Keyfields
+DEFINE_KEYFIELD(m_bStartDisabled, FIELD_BOOLEAN, "startstate"),
+DEFINE_KEYFIELD(m_bDoDamage, FIELD_BOOLEAN, "lethaldamage"),
 
 // Function Pointers
 DEFINE_FUNCTION(LaserThink),
@@ -41,9 +46,10 @@ void CEnvPortalLaser::Spawn(void)
 {
 	SetSolid(SOLID_NONE);							// Remove model & collisions
 	SetThink(&CEnvPortalLaser::LaserThink);
+	m_fNextSparkTime = gpGlobals->curtime;
 
 	BeamInit("sprites/laser.spr", 2.0f);
-	m_spawnflags = SF_BEAM_SPARKEND;
+	//m_spawnflags = SF_BEAM_SPARKEND;
 	
 	SetWidth(2.0f);
 	SetEndWidth(GetWidth());				// Note: EndWidth is not scaled
@@ -54,11 +60,6 @@ void CEnvPortalLaser::Spawn(void)
 	SetTexture(m_spriteTexture);
 
 	PointsInit(GetLocalOrigin(), GetLocalOrigin());
-
-	CParticleSystem* endParticles = (CParticleSystem*) CreateEntityByName("info_particle_system");
-	endParticles->KeyValue("effect_name", "discouragement_beam_sparks");
-	endParticles->KeyValue("start_active", 1);
-	m_hEndParticles = endParticles;
 
 	Precache();
 
@@ -163,7 +164,6 @@ void CEnvPortalLaser::TurnOn(void)
 	LaserThink();
 }
 
-
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
@@ -180,9 +180,14 @@ void CEnvPortalLaser::LaserThink(void)
 	
 	SetAbsEndPos(tr.endpos);
 	//DoSparks(GetAbsStartPos(), tr.endpos);
-	CParticleSystem* endParticles = dynamic_cast<CParticleSystem*>(m_hEndParticles.Get());
-	endParticles->SetAbsOrigin(tr.endpos);
-	endParticles->SetAbsAngles(GetAbsAngles());
+
+	if (gpGlobals->curtime > m_fNextSparkTime) {
+		//DoSparks(GetAbsStartPos(), tr.endpos);
+		Vector vecDir;
+		AngleVectors(GetAbsAngles() + QAngle(0, 180, 0), &vecDir); // Particle is flipped
+		g_pEffects->Sparks(tr.endpos, 1, 2, &vecDir);
+		m_fNextSparkTime = gpGlobals->curtime + 0.1f;
+	}
 
 	SetNextThink(gpGlobals->curtime);
 }

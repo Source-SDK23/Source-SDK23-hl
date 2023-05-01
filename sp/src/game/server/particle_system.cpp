@@ -222,8 +222,9 @@ void CParticleSystem::StartParticleSystem( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
-void CParticleSystem::StopParticleSystem( void )
+void CParticleSystem::StopParticleSystem( bool destroyImmediately )
 {
+	m_bDestroyImmediately = destroyImmediately;
 	m_bActive = false;
 }
 
@@ -249,8 +250,7 @@ void CParticleSystem::InputStop( inputdata_t &inputdata )
 //-----------------------------------------------------------------------------
 void CParticleSystem::InputDestroyImmediately( inputdata_t &inputdata )
 {
-	m_bDestroyImmediately = true;
-	StopParticleSystem();
+	StopParticleSystem(true);
 }
 #endif
 

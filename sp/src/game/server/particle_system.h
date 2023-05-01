@@ -30,7 +30,7 @@ public:
 	virtual int  UpdateTransmitState(void);
 
 	void		StartParticleSystem( void );
-	void		StopParticleSystem( void );
+	void		StopParticleSystem( bool destroyImmediately=false );
 
 	void		InputStart( inputdata_t &inputdata );
 	void		InputStop( inputdata_t &inputdata );
