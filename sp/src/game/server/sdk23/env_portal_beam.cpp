@@ -14,12 +14,16 @@
 #include "tier0/memdbgon.h"
 #include <particle_system.h>
 #include <prop_laser_catcher.h>
+#include <saverestore_utlvector.h>
+#include <prop_laser_relay.h>
 
 LINK_ENTITY_TO_CLASS(env_portal_beam, CEnvPortalBeam);
 
 BEGIN_DATADESC(CEnvPortalBeam)
 
 DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
+DEFINE_FIELD(m_hLaserCatcher, FIELD_EHANDLE),
+DEFINE_UTLVECTOR(m_vhLaserRelays, FIELD_EHANDLE),
 
 // Keyfields
 DEFINE_KEYFIELD(m_bStartDisabled, FIELD_BOOLEAN, "startstate"),
@@ -210,8 +214,37 @@ void CEnvPortalBeam::BeamThink(void)
 
 	bool sparksEnabled = true;
 
+	// "Handle" laser relay logic...
+	CUtlVector<EHANDLE> hitRelays;
+	while (FClassnameIs(tr.m_pEnt, "prop_laser_relay")) {
+		sparksEnabled = false;
+
+		CPropLaserRelay* laserRelay = dynamic_cast<CPropLaserRelay*>(tr.m_pEnt);
+		
+		hitRelays.AddToTail(laserRelay); // Add relay to list of hit relays
+
+		// If laser relay has not been hit before
+		if (!m_vhLaserRelays.HasElement(laserRelay)) {
+			laserRelay->Toggle(true, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b); // Turn on relay
+		}
+
+		// New trace ignoring the relay we just hit
+		UTIL_TraceLine(laserRelay->GetAbsOrigin(), laserRelay->GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, laserRelay, COLLISION_GROUP_NONE, &tr);
+	}
+
+	// Disable all laser relays we are not hitting anymore
+	for (int i = 0; i < m_vhLaserRelays.Count(); i++) {
+		if (hitRelays.HasElement(m_vhLaserRelays[i])) {
+			continue;
+		}
+
+		CPropLaserRelay* oldLaserRelay = dynamic_cast<CPropLaserRelay*>(m_vhLaserRelays[i].Get());
+		oldLaserRelay->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+	}
+	m_vhLaserRelays = hitRelays; // Replace new vector list
+
 	// Handle laser hit logic
-	if (strcmp(tr.m_pEnt->GetClassname(), "prop_laser_catcher") == 0) {
+	if (FClassnameIs(tr.m_pEnt, "prop_laser_catcher")) {
 		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(tr.m_pEnt);
 		CPropLaserCatcher* oldLaserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
 

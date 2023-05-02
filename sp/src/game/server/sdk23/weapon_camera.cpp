@@ -60,7 +60,7 @@ void CameraScale_f(const CCommand& args) {
 		return;
 	}
 
-	if (strcmp(pWeapon->GetClassname(), "weapon_camera") != 0) {
+	if (!FClassnameIs(pWeapon, "weapon_camera")) {
 		Msg("Player is not currently using a weapon_camera\n");
 		return;
 	}
@@ -83,7 +83,7 @@ void CameraSlot_f(const CCommand& args) {
 		return;
 	}
 
-	if (strcmp(pWeapon->GetClassname(), "weapon_camera") != 0) {
+	if (!FClassnameIs(pWeapon, "weapon_camera")) {
 		Msg("Player is not currently using a weapon_camera\n");
 		return;
 	}
@@ -278,7 +278,7 @@ void CWeaponCamera::PrimaryAttack(void)
 
 		if (tr.m_pEnt) {
 			for (int i = 0; i < CaptureBlacklistLen; i++) {
-				if (strcmp(CaptureBlacklist[i], tr.m_pEnt->GetClassname()) == 0) {
+				if (FClassnameIs(tr.m_pEnt, CaptureBlacklist[i])) {
 					Msg("Cannot capture object, blacklisted");
 					return;
 				}
