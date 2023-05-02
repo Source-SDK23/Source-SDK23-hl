@@ -23,7 +23,7 @@ BEGIN_DATADESC(CEnvPortalBeam)
 
 DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
 DEFINE_FIELD(m_hLaserCatcher, FIELD_EHANDLE),
-DEFINE_UTLVECTOR(m_vhLaserRelays, FIELD_EHANDLE),
+//DEFINE_UTLVECTOR(m_vhLaserRelays, FIELD_EHANDLE),
 
 // Keyfields
 DEFINE_KEYFIELD(m_bStartDisabled, FIELD_BOOLEAN, "startstate"),
@@ -215,7 +215,7 @@ void CEnvPortalBeam::BeamThink(void)
 	bool sparksEnabled = true;
 
 	// "Handle" laser relay logic...
-	CUtlVector<EHANDLE> hitRelays;
+	/*CUtlVector<EHANDLE> hitRelays;
 	while (FClassnameIs(tr.m_pEnt, "prop_laser_relay")) {
 		sparksEnabled = false;
 
@@ -242,6 +242,7 @@ void CEnvPortalBeam::BeamThink(void)
 		oldLaserRelay->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
 	}
 	m_vhLaserRelays = hitRelays; // Replace new vector list
+	*/
 
 	// Handle laser hit logic
 	if (FClassnameIs(tr.m_pEnt, "prop_laser_catcher")) {

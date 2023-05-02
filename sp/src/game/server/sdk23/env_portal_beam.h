@@ -50,7 +50,7 @@ private:
 	bool m_bAutoAimBeam;
 
 	EHANDLE m_hLaserCatcher;
-	CUtlVector<EHANDLE> m_vhLaserRelays;
+	//CUtlVector<EHANDLE> m_vhLaserRelays;
 
 	CNetworkColor32(m_clrBeamColour);
 	CNetworkColor32(m_clrSpriteColour);
