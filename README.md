@@ -3,11 +3,11 @@ A fork of Mapbase with many additional gameplay elements and improvements.
 
 ## Changes/Additions
 - Added FStop mechanic via `weapon_camera`
+- Add `env_portal_beam` (red thermal discouragement beam from `portal 2` with `P2CE` mechanics)
+- Add `env_portal_laser` (entity which emmits `env_portal_laser`)
+- Add `env_laser_catcher` (entity which changes state when it is hit by an `env_portal_laser`)
 
 ## Planned Changes/Additions
-- Add `env_portal_laser` (red thermal discouragement beam from `portal 2` with `P2CE` mechanics)
-- Add `env_laser_emitter` (entity which emmits `env_portal_laser`)
-- Add `env_laser_catcher` (entity which changes state when it is hit by an `env_portal_laser`)
 - Add `prop_weighted_cube`
 - Add `prop_schrodinger_cube` (cube which "teleports" an `env_portal_laser` which hits it to another linked cube)
 - Add `prop_wall_entity` (hardlight bridge)
