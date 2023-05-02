@@ -96,7 +96,6 @@ bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 		}
 
 		SetSequence(LookupSequence("spin"));
-		SetAnimatedEveryTick(true);
 		particle->StartParticleSystem();
 	}
 	else {
