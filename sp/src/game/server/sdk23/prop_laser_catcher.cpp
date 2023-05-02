@@ -38,7 +38,7 @@ void CPropLaserCatcher::Spawn(void) {
 	SetPlaybackRate(1);
 
 	SetModel(GetModelName().ToCStr());
-	if (m_iSkintype == 1) {
+	if (m_iSkintype == SKIN_RUSTED) {
 		SetSkin(2);
 	}
 	SetSolid(SOLID_VPHYSICS);
@@ -88,7 +88,7 @@ bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 
 	CParticleSystem* particle = dynamic_cast<CParticleSystem*>(m_hParticles.Get());
 	if (state) {
-		if (m_iSkintype == 1) {
+		if (m_iSkintype == SKIN_RUSTED) {
 			SetSkin(3);
 		}
 		else {
@@ -99,7 +99,7 @@ bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 		particle->StartParticleSystem();
 	}
 	else {
-		if (m_iSkintype == 1) {
+		if (m_iSkintype == SKIN_RUSTED) {
 			SetSkin(2);
 		}
 		else {

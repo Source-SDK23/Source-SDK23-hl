@@ -32,7 +32,7 @@ private:
 	bool m_bStartDisabled;
 	bool m_bInstaKill;
 	bool m_bAutoAimBeam;
-	SkinType m_iSkintype;
+	RustedSkinType m_iSkintype;
 
 	CNetworkColor32(m_clrBeamColour);
 	CNetworkColor32(m_clrSpriteColour);

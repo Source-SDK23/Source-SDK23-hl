@@ -51,10 +51,9 @@ void CEnvPortalLaser::Spawn(void) {
 	SetSkin(m_iSkintype);
 	SetSolid(SOLID_VPHYSICS);
 
-	int laserAttachment = LookupAttachment("laser_attachment");
 	Vector attachLoc;
 	QAngle attachAng;
-	GetAttachment(laserAttachment, attachLoc, attachAng);
+	GetAttachment("laser_attachment", attachLoc, attachAng);
 	beam->SetAbsAngles(attachAng);
 	beam->SetAbsOrigin(attachLoc);
 	beam->SetParent(this);

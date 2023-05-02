@@ -209,6 +209,9 @@ void CEnvPortalBeam::BeamThink(void)
 	// Do the TraceLine, and write our results to our trace_t class, tr.
 	UTIL_TraceLine(GetAbsOrigin(), GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, this, COLLISION_GROUP_NONE, &tr);
 	
+	//CollisionProp()->SetCollisionBounds(GetAbsOrigin(), tr.endpos); // Set collider
+	//CollisionProp()->SetCollisionBounds
+
 	SetAbsEndPos(tr.endpos);
 	//DoSparks(GetAbsStartPos(), tr.endpos);
 
@@ -244,7 +247,20 @@ void CEnvPortalBeam::BeamThink(void)
 	m_vhLaserRelays = hitRelays; // Replace new vector list
 	*/
 
-	// Handle laser hit logic
+	// Handle hit logic
+	if (FClassnameIs(tr.m_pEnt, "player")) {
+
+		Vector playerDir;
+		AngleVectors(tr.m_pEnt->GetAbsAngles(), &playerDir);
+
+		tr.m_pEnt->SetAbsOrigin(tr.m_pEnt->GetAbsOrigin() - (playerDir * 5));
+		tr.m_pEnt->SetAbsVelocity(tr.m_pEnt->GetAbsVelocity().Normalized() * -300); // -300 is a good constant, using -2*absvel causes more vertical yeeting
+		tr.m_pEnt->TakeDamage(CTakeDamageInfo(this, this, 2.5f, DMG_BURN));
+		SetNextThink(gpGlobals->curtime);
+		return; // Do nothing else
+	}
+
+	// Handle laser catcher hit logic
 	if (FClassnameIs(tr.m_pEnt, "prop_laser_catcher")) {
 		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(tr.m_pEnt);
 		CPropLaserCatcher* oldLaserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());

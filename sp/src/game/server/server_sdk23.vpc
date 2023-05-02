@@ -313,6 +313,8 @@ $Project "Server (SDK23)"
 			$File	"sdk23\prop_laser_catcher.cpp"
 			$File	"sdk23\prop_laser_relay.h"
 			$File	"sdk23\prop_laser_relay.cpp"
+			$File	"sdk23\prop_weighted_cube.h"
+			$File	"sdk23\prop_weighted_cube.cpp"
 		}
 	}
 }

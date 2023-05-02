@@ -31,7 +31,7 @@ private:
 	EHANDLE m_hParticles;
 
 	bool m_bState;
-	SkinType m_iSkintype;
+	RustedSkinType m_iSkintype;
 	bool m_bUseFilterColour;
 	CNetworkColor32(m_clrFilterColour);
 };
