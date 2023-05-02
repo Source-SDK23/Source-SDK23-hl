@@ -48,6 +48,7 @@ void CEnvPortalLaser::Spawn(void) {
 	beam->KeyValue("DisablePlayerCollision", m_bDisableCollision);
 
 	SetModel(GetModelName().ToCStr());
+	SetSkin(m_iSkintype);
 	SetSolid(SOLID_VPHYSICS);
 
 	int laserAttachment = LookupAttachment("laser_attachment");
@@ -56,6 +57,7 @@ void CEnvPortalLaser::Spawn(void) {
 	GetAttachment(laserAttachment, attachLoc, attachAng);
 	beam->SetAbsAngles(attachAng);
 	beam->SetAbsOrigin(attachLoc);
+	beam->SetParent(this);
 
 	beam->SetBeamColour(m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b);
 	beam->SetSpriteColour(m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
@@ -71,6 +73,7 @@ void CEnvPortalLaser::Spawn(void) {
 	particle->KeyValue("start_active", 1);
 	particle->SetAbsOrigin(attachLoc);
 	particle->SetAbsAngles(attachAng);
+	particle->SetParent(this);
 	DispatchSpawn(particle);
 	particle->Activate();
 

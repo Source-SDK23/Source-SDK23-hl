@@ -13,6 +13,7 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 #include <particle_system.h>
+#include <prop_laser_catcher.h>
 
 LINK_ENTITY_TO_CLASS(env_portal_beam, CEnvPortalBeam);
 
@@ -207,7 +208,33 @@ void CEnvPortalBeam::BeamThink(void)
 	SetAbsEndPos(tr.endpos);
 	//DoSparks(GetAbsStartPos(), tr.endpos);
 
-	if (gpGlobals->curtime > m_fNextSparkTime) {
+	bool sparksEnabled = true;
+
+	// Handle laser hit logic
+	if (strcmp(tr.m_pEnt->GetClassname(), "prop_laser_catcher") == 0) {
+		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(tr.m_pEnt);
+		CPropLaserCatcher* oldLaserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
+
+		if (laserCatcher != oldLaserCatcher) {
+			if (oldLaserCatcher != NULL) { // Deactivate old laser catcher
+				oldLaserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+			}
+
+			if (laserCatcher->Toggle(true, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
+				m_hLaserCatcher = laserCatcher; // Track new laser catcher
+			}
+		}
+
+		sparksEnabled = false; // Don't do sparks
+	}
+	else if (m_hLaserCatcher != NULL) {
+		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
+		laserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+		m_hLaserCatcher = NULL;
+	}
+
+
+	if (gpGlobals->curtime > m_fNextSparkTime && sparksEnabled) {
 		//DoSparks(GetAbsStartPos(), tr.endpos);
 		Vector vecDir;
 		AngleVectors(GetAbsAngles() + QAngle(0, 180, 0), &vecDir); // Particle is flipped

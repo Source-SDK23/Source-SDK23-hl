@@ -49,6 +49,8 @@ private:
 	bool m_bInstaKill;
 	bool m_bAutoAimBeam;
 
+	EHANDLE m_hLaserCatcher;
+
 	CNetworkColor32(m_clrBeamColour);
 	CNetworkColor32(m_clrSpriteColour);
 
