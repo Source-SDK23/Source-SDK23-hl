@@ -170,11 +170,11 @@ bool CEnvPortalBeam::TurnOff(void)
 	CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
 	if (oldLaserCatcher != NULL) {
 		oldLaserCatcher->Toggle(false, 0, 0, 0);
-		oldLaserCatcher = NULL;
+		m_hLaserCatcher = NULL;
 	}
 	if (oldLaserCube != NULL) {
 		oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
-		oldLaserCube = NULL;
+		m_hLaserCube = NULL;
 	}
 
 	SetNextThink(TICK_NEVER_THINK);
@@ -287,6 +287,7 @@ void CEnvPortalBeam::BeamThink(void)
 		CPropWeightedCube* laserCube = dynamic_cast<CPropWeightedCube*>(tr.m_pEnt);
 		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
 
+		Msg("Cube detected, checking");
 		if (laserCube != oldLaserCube) {
 			if (oldLaserCube != NULL) {
 				oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
@@ -297,6 +298,9 @@ void CEnvPortalBeam::BeamThink(void)
 			if (laserCube->SendLaserState(true, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
 				m_hLaserCube = laserCube;
 			}
+		}
+		else {
+			Msg("Cube is the same");
 		}
 
 		sparksEnabled = false;
@@ -317,5 +321,3 @@ void CEnvPortalBeam::BeamThink(void)
 
 	SetNextThink(gpGlobals->curtime);
 }
-
-
