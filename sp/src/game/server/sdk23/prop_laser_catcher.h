@@ -13,8 +13,8 @@
 #include "baseentity.h"
 #include "sdk23/sdk23_const.h"
 
-class CPropLaserCatcher : public CDynamicProp {
-	DECLARE_CLASS(CPropLaserCatcher, CDynamicProp)
+class CPropLaserCatcher : public CBaseProp {
+	DECLARE_CLASS(CPropLaserCatcher, CBaseProp)
 
 public:
 	CPropLaserCatcher(void);
