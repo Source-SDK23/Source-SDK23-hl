@@ -189,7 +189,6 @@ bool CEnvPortalBeam::TurnOff(void)
 bool CEnvPortalBeam::TurnOn(void)
 {
 	if (GetState()) {
-		Msg("BEAM IS ALREADY ONNN!!!");
 		return false;
 	}
 	m_bLaserState = true;
@@ -228,22 +227,17 @@ void CEnvPortalBeam::BeamThink(void)
 {
 	// Create Vector for direction
 	Vector vecDir;
-	// Take the Player's EyeAngles and turn it into a direction
+	// Take the cube angles and turn into dir vector
 	AngleVectors(GetAbsAngles(), &vecDir);
 
 	trace_t tr; // Create our trace_t class to hold the end result
 	// Do the TraceLine, and write our results to our trace_t class, tr.
 	UTIL_TraceLine(GetAbsOrigin(), GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, GetParent(), COLLISION_GROUP_NONE, &tr); // Ignore parent
-	
-	//CollisionProp()->SetCollisionBounds(GetAbsOrigin(), tr.endpos); // Set collider
-	//CollisionProp()->SetCollisionBounds
+	SetAbsEndPos(tr.endpos); // Update beam
 
-	SetAbsEndPos(tr.endpos);
-	//DoSparks(GetAbsStartPos(), tr.endpos);
+	bool sparksEnabled = true; // Enable sparks
 
-	bool sparksEnabled = true;
-
-	// Handle hit logic
+	// If hit player...
 	if (FClassnameIs(tr.m_pEnt, "player")) {
 
 		Vector playerDir;
@@ -262,55 +256,49 @@ void CEnvPortalBeam::BeamThink(void)
 		CPropLaserCatcher* oldLaserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
 
 		if (laserCatcher != oldLaserCatcher) {
-			Msg("Catcher hit and it does not match old one");
 			if (oldLaserCatcher != NULL) { // Deactivate old laser catcher
-				Msg("Disabling old catcher");
 				oldLaserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
-				oldLaserCatcher = NULL;
+				oldLaserCatcher = NULL; // Hit different laser catcher, remove old one
 			}
 
 			if (laserCatcher->Toggle(true, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
-				Msg("Setting catcher var");
 				m_hLaserCatcher = laserCatcher; // Track new laser catcher
 			}
 		}
 
-		sparksEnabled = false; // Don't do sparks
-	} else if (m_hLaserCatcher != NULL) {
-		Msg("Turning off catcher");
+		sparksEnabled = false; // Don't do sparks on laser catchers
+	} else if (m_hLaserCatcher != NULL) { // If laser catcher not hit, deactivate previously hit one
 		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
 		laserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
 		m_hLaserCatcher = NULL;
 	}
 
+	// Check for cube
 	if (FClassnameIs(tr.m_pEnt, "prop_weighted_cube")) {
 		CPropWeightedCube* laserCube = dynamic_cast<CPropWeightedCube*>(tr.m_pEnt);
 		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
 
-		Msg("Cube detected, checking");
 		if (laserCube != oldLaserCube) {
 			if (oldLaserCube != NULL) {
 				oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
-				oldLaserCube = NULL;
+				oldLaserCube = NULL; // No longer hitting old laser cube, deactivate and remove
 			}
 
-			Msg("Trying to turn on new cube");
+			// Note: these handle the reflection cube check internally, so unlike sparks, the check is not required here
 			if (laserCube->SendLaserState(true, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
 				m_hLaserCube = laserCube;
 			}
 		}
-		else {
-			Msg("Cube is the same");
-		}
 
-		sparksEnabled = false;
-	} else if (m_hLaserCube != NULL) {
+		// Deactivate sparks if it is a laser cube
+		sparksEnabled = !(m_);
+	} else if (m_hLaserCube != NULL) { // Did not hit cube, disable old one
 		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
 		oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
 		m_hLaserCube = NULL;
 	}
 
-
+	// For spark effect
 	if (gpGlobals->curtime > m_fNextSparkTime && sparksEnabled) {
 		//DoSparks(GetAbsStartPos(), tr.endpos);
 		Vector vecDir;

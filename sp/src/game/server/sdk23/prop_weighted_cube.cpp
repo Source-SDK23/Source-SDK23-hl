@@ -1,3 +1,7 @@
+//-----------------------------------------------------------------------------
+// Purpose: Portal cube entity
+//-----------------------------------------------------------------------------
+
 #include "cbase.h"
 
 #include "prop_weighted_cube.h"
@@ -16,11 +20,15 @@ DEFINE_FIELD(m_hParticle, FIELD_EHANDLE),
 
 DEFINE_KEYFIELD(m_iCubeType, FIELD_INTEGER, "cubetype"),
 DEFINE_KEYFIELD(m_bUseLaserModifier, FIELD_BOOLEAN, "uselasermodifier"),
-DEFINE_KEYFIELD(m_bUseLaserFilter, FIELD_BOOLEAN, "uselaserfilter"),
+DEFINE_KEYFIELD(m_clrLaserModifier, FIELD_COLOR32, "reflectmodifycolor"),
+
+DEFINE_KEYFIELD(m_bUseFilterColour, FIELD_BOOLEAN, "uselaserfilter"),
+DEFINE_KEYFIELD(m_clrFilterColour, FIELD_COLOR32, "filtercolor"),
 
 END_DATADESC()
 
 void CPropWeightedCube::Spawn(void) {
+	// Set model and skins based on cube type
 	switch (m_iCubeType) {
 	case CUBE_WEIGHTED_STORAGE:
 		SetModelName(MAKE_STRING("models/props/metal_box.mdl"));
@@ -66,12 +74,14 @@ void CPropWeightedCube::Spawn(void) {
 		break;
 	}
 
+	// Precache models etc
 	Precache();
 
+	// Set model and physics
 	SetModel(GetModelName().ToCStr());
 	SetSolid(SOLID_VPHYSICS);
-	SetCollisionGroup(COLLISION_GROUP_NONE);
 
+	// If laser-compatible cube, create beam and particle entities
 	if (m_iCubeType == CUBE_DISCOURAGEMENT_REDIRECTION || m_iCubeType == CUBE_QUANTUM) {
 		CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(CreateEntityByName("env_portal_beam"));
 		beam->KeyValue("startstate", "1");
@@ -106,6 +116,7 @@ void CPropWeightedCube::Spawn(void) {
 		m_hParticle = particle;
 	}
 
+	// Spawn
 	BaseClass::Spawn();
 }
 
@@ -134,18 +145,22 @@ bool CPropWeightedCube::SendLaserState(bool state, int bR, int bB, int bG, int s
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Recieve laser state and reflect it in state etc
+// Purpose: Recieve laser state and activate parent laser accordingly
 //-----------------------------------------------------------------------------
 bool CPropWeightedCube::RecieveLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG) {
 	if (m_iCubeType != CUBE_DISCOURAGEMENT_REDIRECTION && m_iCubeType != CUBE_QUANTUM) { return false; }
 
+	if (m_bUseFilterColour) {
+		if (m_clrFilterColour->r != bR || m_clrFilterColour->g != bG || m_clrFilterColour->b != bB) {
+			return false;
+		}
+	}
+
 	CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(m_hBeam.Get());
 	if (beam == NULL) {
-		Msg("BEAM IS NULL ERRRR");
 		return false;
 	}
 	if (beam->GetState() == state) {
-		Msg("State matches\n\n");
 		return false;
 	}
 
@@ -154,13 +169,17 @@ bool CPropWeightedCube::RecieveLaserState(bool state, int bR, int bB, int bG, in
 		return false;
 	}
 	if (state) {
-		Msg("Turning stuff ON");
-		beam->SetBeamColour(bR, bG, bB);
+		// Set colours and turn on beam
+
+		if (m_bUseLaserModifier) {
+			beam->SetBeamColour(m_clrLaserModifier->r, m_clrLaserModifier->g, m_clrLaserModifier->b);
+		} else {
+			beam->SetBeamColour(bR, bG, bB);
+		}
 		beam->SetSpriteColour(sR, sG, sB);
-		beam->TurnOn();
+		beam->TurnOn(); // Turn on beam
 		particleSystem->StartParticleSystem();
 	} else {
-		Msg("Shutting off beam");
 		beam->TurnOff();
 		particleSystem->StopParticleSystem();
 	}

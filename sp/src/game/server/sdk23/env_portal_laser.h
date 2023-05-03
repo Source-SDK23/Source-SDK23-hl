@@ -1,6 +1,6 @@
-//===== ENV_PORTAL_LASER//
-// For the actual laser emitter entity
-//
+//-----------------------------------------------------------------------------
+// Purpose: Laser emitter entity
+//-----------------------------------------------------------------------------
 
 #ifndef ENVPORTALLASER_H
 #define ENVPORTALLASER_H

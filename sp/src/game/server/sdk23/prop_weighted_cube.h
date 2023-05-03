@@ -1,3 +1,7 @@
+//-----------------------------------------------------------------------------
+// Purpose: Portal cube entity
+//-----------------------------------------------------------------------------
+
 #ifndef PROP_WEIGHTED_CUBE_H
 #define PROP_WEIGHTED_CUBE_H
 #ifdef _WIN32
@@ -24,6 +28,8 @@ public:
 
 	bool SendLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG); // Send laser state to next schrodinger cube
 	bool RecieveLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG); // Set cube's laser + particle
+
+	CubeType GetCubeType(void);
 
 	void Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType, float value)
 	{
@@ -57,7 +63,7 @@ private:
 	bool m_bUseLaserModifier;
 	CNetworkColor32(m_clrLaserModifier);
 
-	bool m_bUseLaserFilter;
+	bool m_bUseFilterColour;
 	CNetworkColor32(m_clrLaserFilter);
 
 };

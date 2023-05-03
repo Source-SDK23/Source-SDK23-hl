@@ -1,6 +1,6 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//=========                BASED ON ENV_LASER CODE                 ============//
 //
-// Purpose: 
+// Purpose: PORTAL. LASER.
 //
 // $NoKeywords: $
 //=============================================================================//

@@ -1,3 +1,6 @@
+//-----------------------------------------------------------------------------
+// Purpose: Laser catcher entity
+//-----------------------------------------------------------------------------
 
 #include "cbase.h"
 #include "prop_laser_catcher.h"
@@ -15,7 +18,6 @@ BEGIN_DATADESC(CPropLaserCatcher)
 DEFINE_KEYFIELD(m_iSkintype, FIELD_INTEGER, "skintype"),
 
 DEFINE_KEYFIELD(m_clrFilterColour, FIELD_COLOR32, "filtercolor"),
-
 DEFINE_KEYFIELD(m_bUseFilterColour, FIELD_BOOLEAN, "uselaserfilter"),
 
 // Fields
@@ -39,11 +41,16 @@ void CPropLaserCatcher::Spawn(void) {
 	SetPlaybackRate(1);
 
 	SetModel(GetModelName().ToCStr());
+
+	// If rusted skin, set it accordigly
 	if (m_iSkintype == SKIN_RUSTED) {
 		SetSkin(2);
 	}
+
+
 	SetSolid(SOLID_VPHYSICS);
-	SetCollisionGroup(COLLISION_GROUP_NONE);
+	
+	// Colour the catcher accordingly
 	if (m_bUseFilterColour) {
 		SetRenderColor(m_clrFilterColour->r, m_clrFilterColour->g, m_clrFilterColour->b);
 	}
@@ -77,6 +84,7 @@ void CPropLaserCatcher::Precache(void) {
 	BaseClass::Precache();
 }
 
+// Change laser catcher state
 bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 	if (m_bState == state) {
 		Msg("Catcher state already set");
