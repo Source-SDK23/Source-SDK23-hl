@@ -61,7 +61,7 @@ void CEnvPortalBeam::Spawn(void)
 	SetSolid(SOLID_NONE);							// Remove model & collisions
 	m_fNextSparkTime = gpGlobals->curtime;
 
-	BeamInit("sprites/laser.spr", 2.0f);
+	BeamInit("sprites/laser.spr", 4.0f);
 	//m_spawnflags = SF_BEAM_SPARKEND;
 	
 	SetWidth(4.0f);
