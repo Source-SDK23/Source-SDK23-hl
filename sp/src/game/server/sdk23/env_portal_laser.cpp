@@ -107,6 +107,16 @@ void CEnvPortalLaser::InputToggle(inputdata_t& inputdata) {
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEnvPortalLaser::InputSetBeamColor(inputdata_t& inputdata) {
+	CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(m_hBeam.Get());
+
+	m_clrBeamColour = inputdata.value.Color32();
+	beam->SetColor(m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b);
+}
+
 bool CEnvPortalLaser::TurnOn(void) {
 	CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(m_hBeam.Get());
 	return beam->TurnOn();

@@ -25,6 +25,7 @@ public:
 	bool Toggle(bool state, int pR, int pG, int pB);
 
 	bool GetState(void) { return m_bState; };
+	void SetFilterColour(int r, int g, int b);
 
 	void ISetSkin(inputdata_t& inputdata);
 	void ISetFilterColor(inputdata_t& inputdata);

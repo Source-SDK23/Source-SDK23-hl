@@ -21,9 +21,12 @@ public:
 	void InputTurnOn(inputdata_t& inputdata);
 	void InputTurnOff(inputdata_t& inputdata);
 	void InputToggle(inputdata_t& inputdata);
+	void InputSetBeamColor(inputdata_t& inputdata);
 
 	bool TurnOn(void);
 	bool TurnOff(void);
+
+	COutputEvent	m_OnTouchedByEntity;
 
 	DECLARE_DATADESC()
 private:

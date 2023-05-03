@@ -10,6 +10,7 @@ A fork of Mapbase with many additional gameplay elements and improvements to bri
 - Add schrodinger's cube (cube which "teleports" an `env_portal_laser` which hits it to another linked cube) (available as additional `prop_weighted_cube` type)
 
 ## Planned Changes/Additions
+- Add `prop_testchamber_door`
 - Add `prop_wall_entity` (hardlight bridge)
 - Add `prop_wall_projector` (projector which emits `prop_wall_entity`)
 - Add `trigger_faithplate`

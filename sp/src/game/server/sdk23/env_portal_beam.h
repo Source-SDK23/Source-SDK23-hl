@@ -37,6 +37,7 @@ public:
 	void InputTurnOn(inputdata_t& inputdata);
 	void InputTurnOff(inputdata_t& inputdata);
 	void InputToggle(inputdata_t& inputdata);
+	void InputSetBeamColor(inputdata_t& inputdata);
 
 	COutputEvent	m_OnTouchedByEntity;
 

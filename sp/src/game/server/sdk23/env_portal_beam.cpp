@@ -45,6 +45,7 @@ DEFINE_FUNCTION(BeamThink),
 DEFINE_INPUTFUNC(FIELD_VOID, "TurnOn", InputTurnOn),
 DEFINE_INPUTFUNC(FIELD_VOID, "TurnOff", InputTurnOff),
 DEFINE_INPUTFUNC(FIELD_VOID, "Toggle", InputToggle),
+DEFINE_INPUTFUNC(FIELD_COLOR32, "SetBeamColor", InputSetBeamColor),
 
 #ifdef MAPBASE
 DEFINE_OUTPUT(m_OnTouchedByEntity, "OnTouchedByEntity"),
@@ -152,6 +153,13 @@ void CEnvPortalBeam::InputToggle(inputdata_t& inputdata)
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Purpose: 
+//-----------------------------------------------------------------------------
+void CEnvPortalBeam::InputSetBeamColor(inputdata_t& inputdata) {
+	m_clrBeamColour = inputdata.value.Color32();
+	SetColor(m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b);
+}
 
 //-----------------------------------------------------------------------------
 // Purpose: 
@@ -236,6 +244,10 @@ void CEnvPortalBeam::BeamThink(void)
 	SetAbsEndPos(tr.endpos); // Update beam
 
 	bool sparksEnabled = true; // Enable sparks
+
+	if (tr.DidHitNonWorldEntity()) {
+		m_OnTouchedByEntity.FireOutput(tr.m_pEnt, this);
+	}
 
 	// If hit player...
 	if (FClassnameIs(tr.m_pEnt, "player")) {

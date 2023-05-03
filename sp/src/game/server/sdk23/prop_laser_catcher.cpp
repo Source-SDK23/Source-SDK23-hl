@@ -25,16 +25,17 @@ DEFINE_FIELD(m_hParticles, FIELD_EHANDLE),
 DEFINE_FIELD(m_bState, FIELD_BOOLEAN),
 
 // Input functions
-//DEFINE_INPUTFUNC(FIELD_VOID, "TurnOn", InputTurnOn),
-//DEFINE_INPUTFUNC(FIELD_VOID, "TurnOff", InputTurnOff),
-//DEFINE_INPUTFUNC(FIELD_VOID, "Toggle", InputToggle),
+DEFINE_INPUTFUNC(FIELD_VOID, "Skin", ISetSkin),
+DEFINE_INPUTFUNC(FIELD_COLOR32, "SetFilterColor", ISetFilterColor),
+
+DEFINE_OUTPUT(m_OnPowered, "OnPowered"),
+DEFINE_OUTPUT(m_OnUnpowered, "OnUnpowered"),
 
 END_DATADESC()
 
 CPropLaserCatcher::CPropLaserCatcher(void) {
 	UseClientSideAnimation();
 }
-
 
 void CPropLaserCatcher::Spawn(void) {
 	Precache();
@@ -84,6 +85,26 @@ void CPropLaserCatcher::Precache(void) {
 	BaseClass::Precache();
 }
 
+void CPropLaserCatcher::ISetSkin(inputdata_t& inputdata) {
+	SetSkin(inputdata.value.Int());
+}
+
+void CPropLaserCatcher::ISetFilterColor(inputdata_t& inputdata) {
+	m_clrFilterColour = inputdata.value.Color32();
+	SetRenderColor(m_clrFilterColour->r, m_clrFilterColour->g, m_clrFilterColour->b);
+}
+
+void CPropLaserCatcher::SetFilterColour(int r, int g, int b) {
+	if (!m_bUseFilterColour) {
+		return;
+	}
+
+	m_clrFilterColour.SetR(r);
+	m_clrFilterColour.SetG(g);
+	m_clrFilterColour.SetB(b);
+	SetRenderColor(m_clrFilterColour->r, m_clrFilterColour->g, m_clrFilterColour->b);
+}
+
 // Change laser catcher state
 bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 	if (m_bState == state) {
@@ -108,6 +129,7 @@ bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 
 		SetSequence(LookupSequence("spin"));
 		particle->StartParticleSystem();
+		m_OnPowered.FireOutput(this, this);
 	}
 	else {
 		if (m_iSkintype == SKIN_RUSTED) {
@@ -119,6 +141,7 @@ bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 
 		SetSequence(LookupSequence("idle"));
 		particle->StopParticleSystem();
+		m_OnUnpowered.FireOutput(this, this);
 	}
 
 	m_bState = state;
