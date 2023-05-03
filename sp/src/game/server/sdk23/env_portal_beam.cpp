@@ -10,12 +10,14 @@
 #include "Sprite.h"
 #include "IEffects.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 #include <particle_system.h>
 #include <prop_laser_catcher.h>
 #include <saverestore_utlvector.h>
 #include <prop_laser_relay.h>
+#include <prop_weighted_cube.h>
+
+// memdbgon must be the last include file in a .cpp file!!!
+#include "tier0/memdbgon.h"
 
 LINK_ENTITY_TO_CLASS(env_portal_beam, CEnvPortalBeam);
 
@@ -23,6 +25,7 @@ BEGIN_DATADESC(CEnvPortalBeam)
 
 DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
 DEFINE_FIELD(m_hLaserCatcher, FIELD_EHANDLE),
+DEFINE_FIELD(m_hLaserCube, FIELD_EHANDLE),
 //DEFINE_UTLVECTOR(m_vhLaserRelays, FIELD_EHANDLE),
 
 // Keyfields
@@ -55,7 +58,6 @@ END_DATADESC()
 void CEnvPortalBeam::Spawn(void)
 {
 	SetSolid(SOLID_NONE);							// Remove model & collisions
-	SetThink(&CEnvPortalBeam::BeamThink);
 	m_fNextSparkTime = gpGlobals->curtime;
 
 	BeamInit("sprites/laser.spr", 2.0f);
@@ -276,11 +278,31 @@ void CEnvPortalBeam::BeamThink(void)
 		}
 
 		sparksEnabled = false; // Don't do sparks
-	}
-	else if (m_hLaserCatcher != NULL) {
+	} else if (m_hLaserCatcher != NULL) {
 		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
 		laserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
 		m_hLaserCatcher = NULL;
+	}
+
+	if (FClassnameIs(tr.m_pEnt, "prop_weighted_cube")) {
+		CPropWeightedCube* laserCube = dynamic_cast<CPropWeightedCube*>(tr.m_pEnt);
+		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
+
+		if (laserCube != oldLaserCube) {
+			if (oldLaserCube != NULL) {
+				oldLaserCube->SendLaserState(false, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+			}
+
+			if (laserCube->SendLaserState(true, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
+				m_hLaserCube = laserCube;
+			}
+		}
+
+		sparksEnabled = false;
+	} else if (m_hLaserCube != NULL) {
+		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
+		oldLaserCube->SendLaserState(false, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+		m_hLaserCube = NULL;
 	}
 
 

@@ -3,12 +3,15 @@
 #include "prop_weighted_cube.h"
 #include <env_portal_beam.h>
 
+// memdbgon must be the last include file in a .cpp file!!!
+#include "tier0/memdbgon.h"
+
 LINK_ENTITY_TO_CLASS(prop_weighted_cube, CPropWeightedCube);
 BEGIN_DATADESC(CPropWeightedCube)
 
 DEFINE_FIELD(m_iIdleSkin, FIELD_INTEGER),
 DEFINE_FIELD(m_iActiveSkin, FIELD_INTEGER),
-DEFINE_FIELD(m_hLaser, FIELD_EHANDLE),
+DEFINE_FIELD(m_hBeam, FIELD_EHANDLE),
 DEFINE_FIELD(m_hParticle, FIELD_EHANDLE),
 
 DEFINE_KEYFIELD(m_iCubeType, FIELD_INTEGER, "cubetype"),
@@ -68,7 +71,7 @@ void CPropWeightedCube::Spawn(void) {
 	SetModel(GetModelName().ToCStr());
 	SetSolid(SOLID_VPHYSICS);
 
-	if (m_iCubeType == CUBE_DISCOURAGEMENT_REDIRECTION) {
+	if (m_iCubeType == CUBE_DISCOURAGEMENT_REDIRECTION || m_iCubeType == CUBE_QUANTUM) {
 		CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(CreateEntityByName("env_portal_beam"));
 		beam->KeyValue("startstate", "1");
 		beam->KeyValue("lethaldamage", "0");
@@ -86,8 +89,7 @@ void CPropWeightedCube::Spawn(void) {
 		//beam->SetSpriteColour(m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
 		DispatchSpawn(beam);
 		beam->Activate();
-		m_hLaser = beam;
-
+		m_hBeam = beam;
 
 		// Particle
 		CParticleSystem* particle = dynamic_cast<CParticleSystem*>(CreateEntityByName("info_particle_system"));
@@ -110,6 +112,59 @@ void CPropWeightedCube::Precache(void) {
 	if (STRING(GetModelName())) {
 		PrecacheModel(STRING(GetModelName()));
 	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Send laser state to the matching cube
+//-----------------------------------------------------------------------------
+bool CPropWeightedCube::SendLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG) {
+	if (m_iCubeType == CUBE_DISCOURAGEMENT_REDIRECTION) {
+		return RecieveLaserState(state, bR, bB, bG, sR, sB, sG); // Normal redirection cube
+	} else if (m_iCubeType == CUBE_QUANTUM) {
+		// Find matching cube
+		CPropWeightedCube* matchingCube = dynamic_cast<CPropWeightedCube*>(gEntList.FindEntityByName(this, GetEntityName()));
+		if (matchingCube == NULL) {
+			return false;
+		}
+		return matchingCube->RecieveLaserState(state, bR, bB, bG, sR, sB, sG); // Send to quantum cube
+	}
+
+	return false;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: Recieve laser state and reflect it in state etc
+//-----------------------------------------------------------------------------
+bool CPropWeightedCube::RecieveLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG) {
+	if (m_iCubeType != CUBE_DISCOURAGEMENT_REDIRECTION && m_iCubeType != CUBE_QUANTUM) { return false; }
+
+	CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(m_hBeam.Get());
+	if (beam == NULL) {
+		Msg("BEAM IS NULL ERRRR");
+		return false;
+	}
+	if (beam->GetState() == state) {
+		Msg("State matches");
+		return false;
+	}
+
+	CParticleSystem* particleSystem = dynamic_cast<CParticleSystem*>(m_hParticle.Get());
+	if (particleSystem == NULL) {
+		return false;
+	}
+	if (state) {
+		Msg("Turning stuff ON");
+		//beam->SetColor(bR, bG, bB);
+		//beam->SetSpriteColour(sR, sG, sB);
+		beam->TurnOn();
+		particleSystem->StartParticleSystem();
+	}
+	else {
+		beam->TurnOff();
+		particleSystem->StopParticleSystem();
+	}
+
+	return true;
 }
 
 //-----------------------------------------------------------------------------

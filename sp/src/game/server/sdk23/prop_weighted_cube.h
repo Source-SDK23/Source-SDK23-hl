@@ -22,6 +22,9 @@ public:
 	bool OnAttemptPhysGunPickup(CBasePlayer* pPhysGunUser, PhysGunPickup_t reason) { return true; };
 	bool CanBePickedUpByPhyscannon() { return true; };
 
+	bool SendLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG); // Send laser state to next schrodinger cube
+	bool RecieveLaserState(bool state, int bR, int bB, int bG, int sR, int sB, int sG); // Set cube's laser + particle
+
 	void Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType, float value)
 	{
 		CBasePlayer* pPlayer = ToBasePlayer(pActivator);
@@ -39,8 +42,9 @@ public:
 
 	DECLARE_DATADESC()
 private:
-	EHANDLE m_hLaser;
+	EHANDLE m_hBeam;
 	EHANDLE m_hParticle;
+
 	int m_iIdleSkin;
 	int m_iActiveSkin;
 

@@ -1,10 +1,10 @@
 
 #include "cbase.h"
 #include "prop_laser_catcher.h"
+#include <particle_system.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-#include <particle_system.h>
 
 
 LINK_ENTITY_TO_CLASS(prop_laser_catcher, CPropLaserCatcher);

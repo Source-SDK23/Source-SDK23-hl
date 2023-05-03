@@ -2,10 +2,10 @@
 #include "cbase.h"
 #include "env_portal_laser.h"
 #include <env_portal_beam.h>
+#include <particle_system.h>
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
-#include <particle_system.h>
 
 
 LINK_ENTITY_TO_CLASS(env_portal_laser, CEnvPortalLaser);
