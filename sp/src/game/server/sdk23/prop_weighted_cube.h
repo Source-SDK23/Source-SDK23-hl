@@ -8,16 +8,34 @@
 #include "player_pickup.h"
 #include "particle_system.h"
 #include "sdk23/sdk23_const.h"
+#include "props.h"
 
-class CPropWeightedCube : public CBaseAnimating, public CDefaultPlayerPickupVPhysics{
+class CPropWeightedCube : public CPhysicsProp {
 public:
-	DECLARE_CLASS(CPropWeightedCube, CBaseAnimating);
+	DECLARE_CLASS(CPropWeightedCube, CPhysicsProp);
 
 	void Precache(void);
 	void Spawn(void);
 	QAngle PreferredCarryAngles(void);
 
-	bool HasPreferredCarryAnglesForPlayer(CBasePlayer* pPlayer) { return true; }
+	bool HasPreferredCarryAnglesForPlayer(CBasePlayer* pPlayer) { return true; };
+	bool OnAttemptPhysGunPickup(CBasePlayer* pPhysGunUser, PhysGunPickup_t reason) { return true; };
+	bool CanBePickedUpByPhyscannon() { return true; };
+
+	void Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType, float value)
+	{
+		CBasePlayer* pPlayer = ToBasePlayer(pActivator);
+		if (pPlayer)
+		{
+			pPlayer->PickupObject(this, false);
+		}
+	}
+
+	// Set "usability"
+	int	ObjectCaps(void)
+	{
+		return FCAP_IMPULSE_USE;// | FCAP_USE_IN_RADIUS) : 0));
+	}
 
 	DECLARE_DATADESC()
 private:
