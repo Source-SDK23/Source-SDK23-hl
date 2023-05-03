@@ -77,6 +77,8 @@ void CEnvPortalLaser::Spawn(void) {
 	particle->Activate();
 
 	m_hParticles = particle;
+
+	BaseClass::Spawn();
 }
 
 void CEnvPortalLaser::Precache(void) {

@@ -20,6 +20,7 @@ DEFINE_KEYFIELD(m_bUseFilterColour, FIELD_BOOLEAN, "uselaserfilter"),
 
 // Fields
 DEFINE_FIELD(m_hParticles, FIELD_EHANDLE),
+DEFINE_FIELD(m_bState, FIELD_BOOLEAN),
 
 // Input functions
 //DEFINE_INPUTFUNC(FIELD_VOID, "TurnOn", InputTurnOn),
@@ -42,6 +43,7 @@ void CPropLaserCatcher::Spawn(void) {
 		SetSkin(2);
 	}
 	SetSolid(SOLID_VPHYSICS);
+	SetCollisionGroup(COLLISION_GROUP_NONE);
 	if (m_bUseFilterColour) {
 		SetRenderColor(m_clrFilterColour->r, m_clrFilterColour->g, m_clrFilterColour->b);
 	}
@@ -77,6 +79,7 @@ void CPropLaserCatcher::Precache(void) {
 
 bool CPropLaserCatcher::Toggle(bool state, int pR, int pG, int pB) {
 	if (m_bState == state) {
+		Msg("Catcher state already set");
 		return false;
 	}
 

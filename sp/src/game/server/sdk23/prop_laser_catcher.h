@@ -5,11 +5,12 @@
 #endif
 
 #include "cbase.h"
+#include "props.h"
 #include "baseentity.h"
 #include "sdk23/sdk23_const.h"
 
-class CPropLaserCatcher : public CBaseAnimating{
-	DECLARE_CLASS(CPropLaserCatcher, CBaseAnimating)
+class CPropLaserCatcher : public CDynamicProp {
+	DECLARE_CLASS(CPropLaserCatcher, CDynamicProp)
 
 public:
 	CPropLaserCatcher(void);

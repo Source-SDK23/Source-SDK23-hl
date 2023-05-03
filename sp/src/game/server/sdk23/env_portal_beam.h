@@ -43,6 +43,7 @@ public:
 	DECLARE_DATADESC();
 
 private:
+	bool m_bLaserState;
 	float m_fNextSparkTime;
 
 	bool m_bStartDisabled;

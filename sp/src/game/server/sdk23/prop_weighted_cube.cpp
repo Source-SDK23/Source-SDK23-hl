@@ -70,6 +70,7 @@ void CPropWeightedCube::Spawn(void) {
 
 	SetModel(GetModelName().ToCStr());
 	SetSolid(SOLID_VPHYSICS);
+	SetCollisionGroup(COLLISION_GROUP_NONE);
 
 	if (m_iCubeType == CUBE_DISCOURAGEMENT_REDIRECTION || m_iCubeType == CUBE_QUANTUM) {
 		CEnvPortalBeam* beam = dynamic_cast<CEnvPortalBeam*>(CreateEntityByName("env_portal_beam"));
@@ -80,9 +81,10 @@ void CPropWeightedCube::Spawn(void) {
 
 		Vector attachLoc;
 		QAngle attachAng;
-		GetAttachment("laser_attachment", attachLoc, attachAng);
-		beam->SetAbsAngles(attachAng);
+		GetAttachment("focus", attachLoc, attachAng);
+		beam->SetAbsAngles(attachAng + QAngle(0, -90, 0));
 		beam->SetAbsOrigin(attachLoc);
+		//beam->SetLocalOrigin(Vector(10, 0, 0)); // Offset forwards
 		beam->SetParent(this);
 
 		//beam->SetBeamColour(m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b);
@@ -96,7 +98,7 @@ void CPropWeightedCube::Spawn(void) {
 		particle->KeyValue("effect_name", "reflector_start_glow");
 		particle->KeyValue("start_active", "0");
 		particle->SetAbsOrigin(attachLoc);
-		particle->SetAbsAngles(attachAng);
+		particle->SetAbsAngles(attachAng + QAngle(0, -90, 0));
 		particle->SetParent(this);
 		DispatchSpawn(particle);
 		particle->Activate();
@@ -105,7 +107,6 @@ void CPropWeightedCube::Spawn(void) {
 	}
 
 	BaseClass::Spawn();
-	Activate();
 }
 
 void CPropWeightedCube::Precache(void) {
@@ -144,7 +145,7 @@ bool CPropWeightedCube::RecieveLaserState(bool state, int bR, int bB, int bG, in
 		return false;
 	}
 	if (beam->GetState() == state) {
-		Msg("State matches");
+		Msg("State matches\n\n");
 		return false;
 	}
 
@@ -154,12 +155,12 @@ bool CPropWeightedCube::RecieveLaserState(bool state, int bR, int bB, int bG, in
 	}
 	if (state) {
 		Msg("Turning stuff ON");
-		//beam->SetColor(bR, bG, bB);
-		//beam->SetSpriteColour(sR, sG, sB);
+		beam->SetBeamColour(bR, bG, bB);
+		beam->SetSpriteColour(sR, sG, sB);
 		beam->TurnOn();
 		particleSystem->StartParticleSystem();
-	}
-	else {
+	} else {
+		Msg("Shutting off beam");
 		beam->TurnOff();
 		particleSystem->StopParticleSystem();
 	}

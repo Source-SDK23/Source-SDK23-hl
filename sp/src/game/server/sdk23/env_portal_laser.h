@@ -9,11 +9,12 @@
 #endif
 
 #include "cbase.h"
+#include "props.h"
 #include "sdk23/sdk23_const.h"
 
-class CEnvPortalLaser : public CBaseAnimating {
+class CEnvPortalLaser : public CDynamicProp {
 public:
-	DECLARE_CLASS(CEnvPortalLaser, CBaseAnimating);
+	DECLARE_CLASS(CEnvPortalLaser, CDynamicProp);
 	void Precache(void);
 	void Spawn(void);
 

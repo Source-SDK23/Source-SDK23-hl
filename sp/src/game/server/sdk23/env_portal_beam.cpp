@@ -23,6 +23,7 @@ LINK_ENTITY_TO_CLASS(env_portal_beam, CEnvPortalBeam);
 
 BEGIN_DATADESC(CEnvPortalBeam)
 
+DEFINE_FIELD(m_bLaserState, FIELD_BOOLEAN),
 DEFINE_FIELD(m_fNextSparkTime, FIELD_FLOAT),
 DEFINE_FIELD(m_hLaserCatcher, FIELD_EHANDLE),
 DEFINE_FIELD(m_hLaserCube, FIELD_EHANDLE),
@@ -78,10 +79,18 @@ void CEnvPortalBeam::Spawn(void)
 
 	Precache();
 
+	BaseClass::Spawn();
+
+	SetNextThink(gpGlobals->curtime + 0.1f); // TICK!
 	if (m_bStartDisabled) {
 		TurnOff();
 	} else {
-		TurnOn();
+		// Manually turn on BUT DO NOT RUN think at spawn or stuff breaks!!!
+		// SetThink is used anyway because it waits for spawn to be complete
+		m_bLaserState = true;
+		RemoveEffects(EF_NODRAW);
+		m_flFireTime = gpGlobals->curtime;
+		SetThink(&CEnvPortalBeam::BeamThink);
 	}
 }
 
@@ -100,7 +109,7 @@ void CEnvPortalBeam::Precache(void)
 //-----------------------------------------------------------------------------
 bool CEnvPortalBeam::GetState(void)
 {
-	return IsEffectActive(EF_NODRAW);
+	return m_bLaserState;
 }
 
 
@@ -152,8 +161,21 @@ bool CEnvPortalBeam::TurnOff(void)
 	if (!GetState()) {
 		return false;
 	}
+	m_bLaserState = false;
 
 	AddEffects(EF_NODRAW);
+
+	// Handle "children" of laser chain
+	CPropLaserCatcher* oldLaserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
+	CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
+	if (oldLaserCatcher != NULL) {
+		oldLaserCatcher->Toggle(false, 0, 0, 0);
+		oldLaserCatcher = NULL;
+	}
+	if (oldLaserCube != NULL) {
+		oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
+		oldLaserCube = NULL;
+	}
 
 	SetNextThink(TICK_NEVER_THINK);
 	SetThink(NULL);
@@ -167,8 +189,10 @@ bool CEnvPortalBeam::TurnOff(void)
 bool CEnvPortalBeam::TurnOn(void)
 {
 	if (GetState()) {
+		Msg("BEAM IS ALREADY ONNN!!!");
 		return false;
 	}
+	m_bLaserState = true;
 
 	RemoveEffects(EF_NODRAW);
 
@@ -209,7 +233,7 @@ void CEnvPortalBeam::BeamThink(void)
 
 	trace_t tr; // Create our trace_t class to hold the end result
 	// Do the TraceLine, and write our results to our trace_t class, tr.
-	UTIL_TraceLine(GetAbsOrigin(), GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, this, COLLISION_GROUP_NONE, &tr);
+	UTIL_TraceLine(GetAbsOrigin(), GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, GetParent(), COLLISION_GROUP_NONE, &tr); // Ignore parent
 	
 	//CollisionProp()->SetCollisionBounds(GetAbsOrigin(), tr.endpos); // Set collider
 	//CollisionProp()->SetCollisionBounds
@@ -218,36 +242,6 @@ void CEnvPortalBeam::BeamThink(void)
 	//DoSparks(GetAbsStartPos(), tr.endpos);
 
 	bool sparksEnabled = true;
-
-	// "Handle" laser relay logic...
-	/*CUtlVector<EHANDLE> hitRelays;
-	while (FClassnameIs(tr.m_pEnt, "prop_laser_relay")) {
-		sparksEnabled = false;
-
-		CPropLaserRelay* laserRelay = dynamic_cast<CPropLaserRelay*>(tr.m_pEnt);
-		
-		hitRelays.AddToTail(laserRelay); // Add relay to list of hit relays
-
-		// If laser relay has not been hit before
-		if (!m_vhLaserRelays.HasElement(laserRelay)) {
-			laserRelay->Toggle(true, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b); // Turn on relay
-		}
-
-		// New trace ignoring the relay we just hit
-		UTIL_TraceLine(laserRelay->GetAbsOrigin(), laserRelay->GetAbsOrigin() + (vecDir * MAX_TRACE_LENGTH), MASK_OPAQUE_AND_NPCS, laserRelay, COLLISION_GROUP_NONE, &tr);
-	}
-
-	// Disable all laser relays we are not hitting anymore
-	for (int i = 0; i < m_vhLaserRelays.Count(); i++) {
-		if (hitRelays.HasElement(m_vhLaserRelays[i])) {
-			continue;
-		}
-
-		CPropLaserRelay* oldLaserRelay = dynamic_cast<CPropLaserRelay*>(m_vhLaserRelays[i].Get());
-		oldLaserRelay->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
-	}
-	m_vhLaserRelays = hitRelays; // Replace new vector list
-	*/
 
 	// Handle hit logic
 	if (FClassnameIs(tr.m_pEnt, "player")) {
@@ -268,17 +262,22 @@ void CEnvPortalBeam::BeamThink(void)
 		CPropLaserCatcher* oldLaserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
 
 		if (laserCatcher != oldLaserCatcher) {
+			Msg("Catcher hit and it does not match old one");
 			if (oldLaserCatcher != NULL) { // Deactivate old laser catcher
+				Msg("Disabling old catcher");
 				oldLaserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+				oldLaserCatcher = NULL;
 			}
 
 			if (laserCatcher->Toggle(true, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
+				Msg("Setting catcher var");
 				m_hLaserCatcher = laserCatcher; // Track new laser catcher
 			}
 		}
 
 		sparksEnabled = false; // Don't do sparks
 	} else if (m_hLaserCatcher != NULL) {
+		Msg("Turning off catcher");
 		CPropLaserCatcher* laserCatcher = dynamic_cast<CPropLaserCatcher*>(m_hLaserCatcher.Get());
 		laserCatcher->Toggle(false, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
 		m_hLaserCatcher = NULL;
@@ -290,9 +289,11 @@ void CEnvPortalBeam::BeamThink(void)
 
 		if (laserCube != oldLaserCube) {
 			if (oldLaserCube != NULL) {
-				oldLaserCube->SendLaserState(false, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+				oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
+				oldLaserCube = NULL;
 			}
 
+			Msg("Trying to turn on new cube");
 			if (laserCube->SendLaserState(true, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b)) {
 				m_hLaserCube = laserCube;
 			}
@@ -301,7 +302,7 @@ void CEnvPortalBeam::BeamThink(void)
 		sparksEnabled = false;
 	} else if (m_hLaserCube != NULL) {
 		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
-		oldLaserCube->SendLaserState(false, m_clrBeamColour->r, m_clrBeamColour->g, m_clrBeamColour->b, m_clrSpriteColour->r, m_clrSpriteColour->g, m_clrSpriteColour->b);
+		oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);
 		m_hLaserCube = NULL;
 	}
 
