@@ -64,7 +64,7 @@ private:
 	CNetworkColor32(m_clrLaserModifier);
 
 	bool m_bUseFilterColour;
-	CNetworkColor32(m_clrLaserFilter);
+	CNetworkColor32(m_clrFilterColour);
 
 };
 

@@ -291,7 +291,10 @@ void CEnvPortalBeam::BeamThink(void)
 		}
 
 		// Deactivate sparks if it is a laser cube
-		sparksEnabled = !(m_);
+		if (laserCube->GetCubeType() == CUBE_DISCOURAGEMENT_REDIRECTION || laserCube->GetCubeType() == CUBE_QUANTUM) {
+			sparksEnabled = false;
+		}
+
 	} else if (m_hLaserCube != NULL) { // Did not hit cube, disable old one
 		CPropWeightedCube* oldLaserCube = dynamic_cast<CPropWeightedCube*>(m_hLaserCube.Get());
 		oldLaserCube->SendLaserState(false, 0, 0, 0, 0, 0, 0);

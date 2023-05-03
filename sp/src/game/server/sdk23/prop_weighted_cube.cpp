@@ -126,6 +126,10 @@ void CPropWeightedCube::Precache(void) {
 	}
 }
 
+CubeType CPropWeightedCube::GetCubeType(void) {
+	return m_iCubeType;
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Send laser state to the matching cube
 //-----------------------------------------------------------------------------
