@@ -1,3 +1,13 @@
+//========= (not) Copyright Valve Corporation, All rights reserved. ============//
+//
+// Created by Bluebotlabz/thatHackerDudeFromCyberspace
+// DO NOT DELETE THIS NOTICE
+// 
+// Purpose:		Implements the FStop camera HUD in a way similar to the P2 coop camera overlay
+//
+// $NoKeywords: $
+//==============================================================================//
+
 #include "cbase.h"
 #include "hudelement.h"
 #include "hud_macros.h"

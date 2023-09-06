@@ -1,6 +1,9 @@
 //========= (not) Copyright Valve Corporation, All rights reserved. ============//
 //
-// Purpose:		FStop moment
+// Created by Bluebotlabz/thatHackerDudeFromCyberspace
+// DO NOT DELETE THIS NOTICE
+// 
+// Purpose:		Implements the FStop camera
 //
 // $NoKeywords: $
 //==============================================================================//
@@ -26,6 +29,7 @@
 #define	CAMERA_MAX_INVENTORY 3 // Maximum inventory  slots
 #define CAMERA_SCALE_RATE 0.3f
 
+// Random sounds, configurable
 #define CAMERA_ZOOM_SOUND "Tile.StepRight"						// Sound for switching to zoom mode
 #define CAMERA_PLACEMENT_SOUND "Cardboard.ImpactSoft"			// Sound for switching to placement mode
 #define CAMERA_PLACE_SOUND "Metal_Box.ImpactSoft"				// Sound for placing object
@@ -33,19 +37,20 @@
 #define CAMERA_SCALE_UP_SOUND "NPC_Alyx.Climb_Pipe_strain_1"	// Sound for scaling object up
 #define CAMERA_SCALE_DOWN_SOUND "NPC_Alyx.Climb_Pipe_strain_2"	// Sound for scaling object down
 
+static const int CameraScalesLen = 5; // Max number of possible scales (do not ask why this isn't generated at runtime)
 static const float CameraScales[] = {
 	0.25, 0.5, 1.0, 2.0, 4.0
 };
-static const int CameraScalesLen = 5; // Max number of possible scales
 
-static const char* CaptureBlacklist[] = { // Never capture these entities
-	"worldspawn",
-	"prop_vehicle_jeep"
-};
 static const int CaptureBlacklistLen = 2; // Length of blacklist
+static const char* CaptureBlacklist[] = { // Never capture these entities
+	"worldspawn",			// DO NOT CAPTURE THE LEVEL
+	"prop_vehicle_jeep"		// Crashes game during placement
+};
 
 
 
+// Handles scaling control
 void CameraScale_f(const CCommand& args) {
 	if (args.ArgC() < 1 || !args.Arg(1)) {
 		Msg("Usage: camera_scale <1|0>\n");
@@ -69,6 +74,7 @@ void CameraScale_f(const CCommand& args) {
 }
 ConCommand CameraScale("camera_scale", CameraScale_f, "camera_scale 1", 0);
 
+// Handles changing camera slot control
 void CameraSlot_f(const CCommand& args) {
 	if (args.ArgC() < 1 || !args.Arg(1)) {
 		Msg("Usage: camera_slot <slot#>\n");
@@ -97,6 +103,9 @@ ConCommand CameraSlot("camera_slot", CameraSlot_f, "camera_slot 2", 0);
 
 
 
+//-----------------------------------------------------------------------------
+// Purpose: Store captured objects
+//-----------------------------------------------------------------------------
 BEGIN_SIMPLE_DATADESC(CCameraEntity)
 	DEFINE_FIELD(m_hEntity, FIELD_EHANDLE),
 	DEFINE_FIELD(m_iSolidType, FIELD_INTEGER),
@@ -105,9 +114,14 @@ BEGIN_SIMPLE_DATADESC(CCameraEntity)
 	DEFINE_FIELD(m_bAwake, FIELD_BOOLEAN),
 END_DATADESC()
 
+
+//-----------------------------------------------------------------------------
+// Purpose: Capture an prop and store its metadata
+//-----------------------------------------------------------------------------
 void CCameraEntity::CaptureEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
+	// Stores original data of the captured entity
 	m_iSolidType = baseEntity->GetSolid();
 	m_iMoveType = baseEntity->GetMoveType();
 	m_iEffects = baseEntity->GetEffects();
@@ -119,6 +133,10 @@ void CCameraEntity::CaptureEntity(void) {
 	HideEntity();
 }
 
+
+//-----------------------------------------------------------------------------
+// Purpose: Restores an prop
+//-----------------------------------------------------------------------------
 void CCameraEntity::RestoreEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
@@ -132,6 +150,10 @@ void CCameraEntity::RestoreEntity(void) {
 	ShowEntity();
 }
 
+
+//-----------------------------------------------------------------------------
+// Purpose: Shows entity preview (not yet transparent)
+//-----------------------------------------------------------------------------
 void CCameraEntity::ShowEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
@@ -139,6 +161,10 @@ void CCameraEntity::ShowEntity(void) {
 	baseEntity->VPhysicsGetObject()->SetPosition(baseEntity->GetAbsOrigin(), baseEntity->GetAbsAngles(), true); // Update collider
 }
 
+
+//-----------------------------------------------------------------------------
+// Purpose: Hides entity preview
+//-----------------------------------------------------------------------------
 void CCameraEntity::HideEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
@@ -149,6 +175,12 @@ void CCameraEntity::HideEntity(void) {
 
 
 
+
+
+
+//-----------------------------------------------------------------------------
+// Purpose: THE MAIN CAMERA CLASS
+//-----------------------------------------------------------------------------
 BEGIN_DATADESC(CWeaponCamera)
 	DEFINE_FIELD(m_iCameraState, FIELD_INTEGER),
 	DEFINE_UTLVECTOR(m_vInventory, FIELD_EMBEDDED),
@@ -181,8 +213,9 @@ void CWeaponCamera::Precache(void)
 	PrecacheScriptSound( CAMERA_SCALE_DOWN_SOUND );
 }
 
+
 //-----------------------------------------------------------------------------
-// Purpose: Keypress detection
+// Purpose: Keypress detection (stolen from... something else... I don't remember what tho)
 //-----------------------------------------------------------------------------
 void CWeaponCamera::ItemPostFrame(void)
 {
@@ -240,6 +273,7 @@ void CWeaponCamera::ItemPostFrame(void)
 	}
 }
 
+
 //-----------------------------------------------------------------------------
 // Purpose: Main button (place object, switch to zoom mode, capture)
 //-----------------------------------------------------------------------------
@@ -257,6 +291,7 @@ void CWeaponCamera::PrimaryAttack(void)
 	// For sounds
 	CPASAttenuationFilter filter(this);
 
+	// Basically a state machine /j
 	switch (m_iCameraState) {
 	case CAMERA_NORMAL:
 		SetZoom(true); // Zoom in
@@ -273,6 +308,7 @@ void CWeaponCamera::PrimaryAttack(void)
 			return;
 		}
 
+		// Perform traceline to find object to capture
 		AngleVectors(pOwner->EyeAngles(), &facingVector);
 		UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
 
@@ -284,19 +320,22 @@ void CWeaponCamera::PrimaryAttack(void)
 				}
 			}
 
+			// Create new cameraEntity
 			CCameraEntity camEntity;
 			camEntity.SetEntity(tr.m_pEnt);
 			camEntity.CaptureEntity();
 
+			// Add cameraEntity to inventory
 			m_vInventory.AddToTail(camEntity);
+
 			EmitSound(filter, entindex(), CAMERA_CAPTURE_SOUND);
 		}
 		break;
 
-	case CAMERA_PLACEMENT:
+	case CAMERA_PLACEMENT: // If in placement mode, place the object
 		CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
-		SetThink(NULL);
-		PlacementThink();
+		SetThink(NULL); // No longer in placement mode
+		PlacementThink(); // This is required, don't remember why tho
 		camEntity.RestoreEntity();
 		m_vInventory.Remove(m_iCurrentInventorySlot); // Remove from inventory
 		m_iCameraState = CAMERA_NORMAL;
@@ -306,6 +345,7 @@ void CWeaponCamera::PrimaryAttack(void)
 		break;
 	}
 }
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Placement mode button (exit zoom mode, switch to placement mode)
@@ -318,11 +358,12 @@ void CWeaponCamera::SecondaryAttack(void)
 	if (pOwner == NULL)
 		return;
 
-	if (m_iCameraState == CAMERA_ZOOM) {
+	// Switches directly to placement mode
+	if (m_iCameraState == CAMERA_ZOOM) { // Always exit soom
 		SetZoom(false); // Unzoom
 		m_iCameraState = CAMERA_NORMAL;
 	}
-	if (m_iCameraState == CAMERA_PLACEMENT) {
+	if (m_iCameraState == CAMERA_PLACEMENT) { // Exit placement mode if already in it
 		SetThink(NULL);
 		m_vInventory[m_iCurrentInventorySlot].HideEntity();
 		m_iCameraState = CAMERA_NORMAL;
@@ -338,7 +379,7 @@ void CWeaponCamera::SecondaryAttack(void)
 		m_iCurrentInventorySlot = m_vInventory.Count(); // Update inventory slot if invalid
 	}
 
-	m_iCameraState = CAMERA_PLACEMENT;
+	m_iCameraState = CAMERA_PLACEMENT; // Set camera state
 	SetThink(&CWeaponCamera::PlacementThink);
 
 	// Play placement mode sound
@@ -348,6 +389,7 @@ void CWeaponCamera::SecondaryAttack(void)
 	m_flNextScale = gpGlobals->curtime;
 	SetNextThink(gpGlobals->curtime + 0.1f);
 }
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Handle placement mode
@@ -376,8 +418,7 @@ void CWeaponCamera::PlacementThink(void)
 	Vector offset(0, 0, 0);
 	trace_t fTr; // Face Trace
 
-	// TODO
-	// IMPROVE THIS ENTIRE PART
+	// TODO: IMPROVE THIS ENTIRE PART
 
 	// +X
 	Vector faceEndCoords = Vector(MAX_TRACE_LENGTH, 0, 0);
@@ -431,6 +472,7 @@ void CWeaponCamera::PlacementThink(void)
 	camEntity.ShowEntity();
 }
 
+
 //-----------------------------------------------------------------------------
 // Purpose: Set player FOV and apply HUD
 //-----------------------------------------------------------------------------
@@ -460,6 +502,7 @@ void CWeaponCamera::SetZoom(bool zoom)
 	}
 }
 
+
 //-----------------------------------------------------------------------------
 // Purpose: Set slot and enter placement mode if not already in it
 //-----------------------------------------------------------------------------
@@ -480,6 +523,7 @@ void CWeaponCamera::SetSlot(int slot)
 		SecondaryAttack();
 	}
 }
+
 
 //-----------------------------------------------------------------------------
 // Purpose: Scale object in placement
@@ -526,6 +570,7 @@ void CWeaponCamera::SetScale(bool scaleUp)
 	}
 
 	Msg("Scaling object...");
+	// Custom function in props.cpp to fix scale physics
 	UTIL_CreateScaledCameraPhysObject(placementEntity, CameraScales[currentScaleIndex], CAMERA_SCALE_RATE);
 	//placementEntity->SetModelScale(CameraScales[currentScaleIndex], 0);
 	m_flNextScale = gpGlobals->curtime + CAMERA_SCALE_RATE;

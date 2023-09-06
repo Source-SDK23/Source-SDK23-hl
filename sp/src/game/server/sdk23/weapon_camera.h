@@ -1,8 +1,12 @@
-//========= Copyright Valve Corporation, All rights reserved. ============//
+//========= (not) Copyright Valve Corporation, All rights reserved. ============//
 //
-// Purpose: 
+// Created by Bluebotlabz/thatHackerDudeFromCyberspace
+// DO NOT DELETE THIS NOTICE
+// 
+// Purpose:		
 //
-//=============================================================================//
+// $NoKeywords: $
+//==============================================================================//
 
 #include "basehlcombatweapon.h"
 #include "soundenvelope.h"
@@ -12,6 +16,12 @@
 #ifdef _WIN32
 #pragma once
 #endif
+
+
+
+//---------------------
+// Camera Entity
+//---------------------
 class CCameraEntity {
 public:
 	void SetEntity(CBaseEntity* entity) { m_hEntity = entity; };
@@ -38,6 +48,8 @@ enum CameraState {
 	CAMERA_ZOOM,
 	CAMERA_PLACEMENT
 };
+
+
 
 //---------------------
 // Camera
