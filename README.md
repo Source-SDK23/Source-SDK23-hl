@@ -1,6 +1,9 @@
 # SDK23
 A fork of Mapbase with many additional gameplay elements and improvements to bring Source-SDK2013 to 2023.
 
+*NOTE: This fork was abandoned after being partially implemented, I no longer want to work with source engine*
+*PLEASE GIVE CREDIT IF YOU USE ANY OF THIS CODE*
+
 ## Changes/Additions
 - Added FStop mechanic via `weapon_camera`
 - Add `env_portal_beam` (red thermal discouragement beam from `portal 2` with `P2CE` mechanics)
