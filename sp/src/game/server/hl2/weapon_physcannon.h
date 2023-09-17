@@ -30,6 +30,12 @@ CBaseEntity *GetPlayerHeldEntity( CBasePlayer *pPlayer );
 
 bool PhysCannonAccountableForObject( CBaseCombatWeapon *pPhysCannon, CBaseEntity *pObject );
 
+//#define SIGN(x) ( (x) < 0 ? -1 : 1 )
+
+IPhysicsObject* GetRagdollChildAtPosition(CBaseEntity* pTarget, const Vector& position);
+void ComputePlayerMatrix(CBasePlayer* pPlayer, matrix3x4_t& out);
+QAngle AlignAngles(const QAngle& angles, float cosineAlignAngle);
+
 #ifdef MAPBASE // Moved here so point_physics_control can access, datadesc is still in weapon_physcannon.cpp
 struct game_shadowcontrol_params_t : public hlshadowcontrol_params_t
 {

@@ -309,7 +309,7 @@ static void MatrixOrthogonalize( matrix3x4_t &matrix, int column )
 
 #define SIGN(x) ( (x) < 0 ? -1 : 1 )
 
-static QAngle AlignAngles( const QAngle &angles, float cosineAlignAngle )
+QAngle AlignAngles( const QAngle &angles, float cosineAlignAngle )
 {
 	matrix3x4_t alignMatrix;
 	AngleMatrix( angles, alignMatrix );
@@ -411,7 +411,7 @@ IPhysicsObject *GetRagdollChildAtPosition( CBaseEntity *pTarget, const Vector &p
 // player can reach down 2ft below his feet (otherwise he'll hold the object above the bottom)
 #define PLAYER_REACH_DOWN_DISTANCE	24
 
-static void ComputePlayerMatrix( CBasePlayer *pPlayer, matrix3x4_t &out )
+void ComputePlayerMatrix( CBasePlayer *pPlayer, matrix3x4_t &out )
 {
 	if ( !pPlayer )
 		return;
@@ -2502,7 +2502,7 @@ bool CWeaponPhysCannon::AttachObject( CBaseEntity *pObject, const Vector &vPosit
 		float	loadWeight = ( 1.0f - GetLoadPercentage() );
 		float	maxSpeed = hl2_walkspeed.GetFloat() + ( ( hl2_normspeed.GetFloat() - hl2_walkspeed.GetFloat() ) * loadWeight );
 
-		//Msg( "Load perc: %f -- Movement speed: %f/%f\n", loadWeight, maxSpeed, hl2_normspeed.GetFloat() );
+		//Msg( "Load perc: %f -- Movement speed: %f/%f\n", loadWeight, maxSpeed, hl2_`.GetFloat() );
 		pOwner->SetMaxSpeed( maxSpeed );
 	}
 
