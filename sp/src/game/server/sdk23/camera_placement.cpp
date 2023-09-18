@@ -209,7 +209,7 @@ float CPlacementController::ComputeError()
 void CPlacementController::ComputeMaxSpeed(CBaseEntity* pEntity, IPhysicsObject* pPhysics)
 {
 	m_shadow.maxSpeed = 1000;
-	m_shadow.maxAngular = DEFAULT_MAX_ANGULAR;
+	/*m_shadow.maxAngular = DEFAULT_MAX_ANGULAR;
 
 	// Compute total mass...
 	float flMass = PhysGetEntityMass(pEntity);
@@ -232,7 +232,7 @@ void CPlacementController::ComputeMaxSpeed(CBaseEntity* pEntity, IPhysicsObject*
 	float maxAngular = invInertia * MASS_SPEED_SCALE * 360;
 
 	m_shadow.maxSpeed = Lerp(flLerpFactor, m_shadow.maxSpeed, maxSpeed);
-	m_shadow.maxAngular = Lerp(flLerpFactor, m_shadow.maxAngular, maxAngular);
+	m_shadow.maxAngular = Lerp(flLerpFactor, m_shadow.maxAngular, maxAngular);*/
 }
 
 
@@ -522,10 +522,6 @@ bool CPlacementController::IsObjectAllowedOverhead(CBaseEntity* pEntity)
 bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 {
 	CBaseEntity* pEntity = GetAttached();
-	/*if (!pEntity || ComputeError() > flError || pPlayer->GetGroundEntity() == pEntity || !pEntity->VPhysicsGetObject())
-	{
-		return false;
-	}*/
 
 	//Adrian: Oops, our object became motion disabled, let go!
 	IPhysicsObject* pPhys = pEntity->VPhysicsGetObject();
@@ -537,31 +533,6 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	Vector forward, right, up;
 	QAngle playerAngles = pPlayer->EyeAngles();
 	AngleVectors(playerAngles, &forward, &right, &up);
-
-	if (HL2GameRules()->MegaPhyscannonActive())
-	{
-		Vector los = (pEntity->WorldSpaceCenter() - pPlayer->Weapon_ShootPosition());
-		VectorNormalize(los);
-
-		float flDot = DotProduct(los, forward);
-
-		//Let go of the item if we turn around too fast.
-		if (flDot <= 0.35f)
-			return false;
-	}
-
-	float pitch = AngleDistance(playerAngles.x, 0);
-
-	if (!m_bAllowObjectOverhead)
-	{
-		playerAngles.x = clamp(pitch, -75, 75);
-	}
-	else
-	{
-		playerAngles.x = clamp(pitch, -90, 75);
-	}
-
-
 
 	// Now clamp a sphere of object radius at end to the player's bbox
 	Vector radial = physcollision->CollideGetExtent(pPhys->GetCollide(), vec3_origin, pEntity->GetAbsAngles(), -forward);

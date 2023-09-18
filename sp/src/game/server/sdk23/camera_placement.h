@@ -18,10 +18,6 @@
 #pragma once
 #endif
 
-void CameraPickupObject(CBasePlayer* pPlayer, CBaseEntity* pObject);
-
-
-
 //-----------------------------------------------------------------------------
 class CPlacementController : public IMotionEvent
 {

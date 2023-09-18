@@ -6987,7 +6987,8 @@ CPhysicsProp* CreatePhysicsProp( const char *pModelName, const Vector &vTraceSta
 // 
 // Changes:
 // - Can now scale NPCs
-// - Does not scale bbox twice
+// - Does not scale bbox twice (problem: sometimes fails)
+// TODO: Figure out shadow scale issues
 //-----------------------------------------------------------------------------
 bool UTIL_CreateScaledCameraPhysObject(CBaseAnimating* pInstance, float flScale, float scaleRate)
 {
