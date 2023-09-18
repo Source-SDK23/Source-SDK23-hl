@@ -578,18 +578,8 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer, float flError)
 	Vector playerLine = pPlayer->CollisionProp()->WorldSpaceCenter();
 	CalcClosestPointOnLine(end, playerLine + Vector(0, 0, playerMins.z), playerLine + Vector(0, 0, playerMaxs.z), nearest, NULL);
 
-	if (!m_bAllowObjectOverhead)
-	{
-		Vector delta = end - nearest;
-		float len = VectorNormalize(delta);
-		if (len < radius)
-		{
-			end = nearest + radius * delta;
-		}
-	}
-
 	//Show overlays of radius
-	if (false) // TODO
+	if (true) // TODO
 	{
 		NDebugOverlay::Box(end, -Vector(2, 2, 2), Vector(2, 2, 2), 0, 255, 0, true, 0);
 
@@ -659,8 +649,6 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 void CCameraPlacementController::Init(CBasePlayer* pPlayer, CBaseEntity* pObject)
 {
-	CHL2_Player* pOwner = (CHL2_Player*)ToBasePlayer(pPlayer);
-
 	// If the target is debris, convert it to non-debris
 	if (pObject->GetCollisionGroup() == COLLISION_GROUP_DEBRIS)
 	{
@@ -714,8 +702,6 @@ void CCameraPlacementController::Shutdown(bool bThrown)
 
 	if (m_pPlayer)
 	{
-		CHL2_Player* pOwner = (CHL2_Player*)ToBasePlayer(m_pPlayer);
-
 		m_pPlayer->SetUseEntity(NULL);
 	}
 	Remove();

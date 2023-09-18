@@ -130,7 +130,7 @@ void CCameraEntity::CaptureEntity(void) {
 	m_iEffects = baseEntity->GetEffects();
 	m_bAwake = baseEntity->VPhysicsGetObject()->IsGravityEnabled() || baseEntity->VPhysicsGetObject()->IsMotionEnabled();
 
-	baseEntity->SetSolid(SOLID_NONE);
+	//baseEntity->SetSolid(SOLID_NONE);
 	baseEntity->SetMoveType(MOVETYPE_NONE);
 
 	HideEntity();
@@ -383,7 +383,7 @@ void CWeaponCamera::SecondaryAttack(void)
 		Msg("Cannot enter placement mode, empty inventory");
 		return;
 	}
-	if (m_iCurrentInventorySlot >= m_vInventory.Count()) {
+	if (m_iCurrentInventorySlot == m_vInventory.Count()) { // It is imposible for this to actually be greater at the moment so >= not needed
 		m_iCurrentInventorySlot = m_vInventory.Count(); // Update inventory slot if invalid
 	}
 
@@ -409,14 +409,16 @@ void CWeaponCamera::PlacementThink(void)
 	if (pOwner == NULL)
 		return;
 
+	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
+	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
+	IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
+
 	Vector facingVector;
 	AngleVectors(pOwner->EyeAngles(), &facingVector);
 
 	trace_t tr;
-	UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
-
-	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
-	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
+	CTraceFilterSkipTwoEntities traceFilter(pOwner, baseEntity, COLLISION_GROUP_NONE);
+	UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, &traceFilter, &tr);
 
 	baseEntity->UpdateModelScale();
 	//float entityRadius = baseEntity->CollisionProp()->BoundingRadius2D();
@@ -424,6 +426,15 @@ void CWeaponCamera::PlacementThink(void)
 
 	//baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
 	baseEntity->SetAbsOrigin(tr.endpos);
+
+	// Slide along the current contact points to fix bouncing problems
+	Vector velocity;
+	AngularImpulse angVel;
+	pObject->GetVelocity(&velocity, &angVel);
+	PhysComputeSlideDirection(pObject, velocity, angVel, &velocity, &angVel, pObject->GetMass());
+	pObject->SetVelocityInstantaneous(&velocity, NULL);
+
+	Msg("\nVel: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
 
 	SetNextThink(gpGlobals->curtime);// +0.1f);
 	camEntity.ShowEntity();
