@@ -161,7 +161,7 @@ void CCameraEntity::ShowEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
 	baseEntity->SetEffects(m_iEffects);
-	baseEntity->VPhysicsGetObject()->SetPosition(baseEntity->GetAbsOrigin(), baseEntity->GetAbsAngles(), true); // Update collider
+	//baseEntity->VPhysicsGetObject()->SetPosition(baseEntity->GetAbsOrigin(), baseEntity->GetAbsAngles(), true); // Update collider
 }
 
 
@@ -172,7 +172,7 @@ void CCameraEntity::HideEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
 	//baseEntity->SetAbsOrigin(Vector(3000, 3000, 3000));
-	//baseEntity->AddEffects(EF_NODRAW);
+	baseEntity->AddEffects(EF_NODRAW);
 	baseEntity->VPhysicsGetObject()->SetPosition(baseEntity->GetAbsOrigin(), baseEntity->GetAbsAngles(), true); // Update collider
 }
 
