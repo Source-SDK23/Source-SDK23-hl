@@ -59,32 +59,6 @@
 
 
 
-BEGIN_SIMPLE_DATADESC(CPlacementController)
-
-DEFINE_EMBEDDED(m_shadow),
-
-DEFINE_FIELD(m_timeToArrive, FIELD_FLOAT),
-DEFINE_FIELD(m_errorTime, FIELD_FLOAT),
-DEFINE_FIELD(m_error, FIELD_FLOAT),
-DEFINE_FIELD(m_contactAmount, FIELD_FLOAT),
-DEFINE_AUTO_ARRAY(m_savedRotDamping, FIELD_FLOAT),
-DEFINE_AUTO_ARRAY(m_savedMass, FIELD_FLOAT),
-DEFINE_FIELD(m_flLoadWeight, FIELD_FLOAT),
-DEFINE_FIELD(m_bCarriedEntityBlocksLOS, FIELD_BOOLEAN),
-DEFINE_FIELD(m_bIgnoreRelativePitch, FIELD_BOOLEAN),
-DEFINE_FIELD(m_attachedEntity, FIELD_EHANDLE),
-DEFINE_FIELD(m_angleAlignment, FIELD_FLOAT),
-DEFINE_FIELD(m_vecPreferredCarryAngles, FIELD_VECTOR),
-DEFINE_FIELD(m_bHasPreferredCarryAngles, FIELD_BOOLEAN),
-DEFINE_FIELD(m_flDistanceOffset, FIELD_FLOAT),
-DEFINE_FIELD(m_attachedAnglesPlayerSpace, FIELD_VECTOR),
-DEFINE_FIELD(m_attachedPositionObjectSpace, FIELD_VECTOR),
-DEFINE_FIELD(m_bAllowObjectOverhead, FIELD_BOOLEAN),
-
-// Physptrs can't be inside embedded classes
-// DEFINE_PHYSPTR( m_controller ),
-
-END_DATADESC()
 
 const float DEFAULT_MAX_ANGULAR = 360.0f * 10.0f;
 const float REDUCED_CARRY_MASS = 1.0f;
@@ -116,8 +90,10 @@ DEFINE_FIELD(m_bAllowObjectOverhead, FIELD_BOOLEAN),
 
 END_DATADESC()
 
-const float DEFAULT_MAX_ANGULAR = 360.0f * 10.0f;
-const float REDUCED_CARRY_MASS = 1.0f;
+
+// TODO
+//const float DEFAULT_MAX_ANGULAR = 360.0f * 10.0f;
+//const float REDUCED_CARRY_MASS = 1.0f;
 
 CPlacementController::CPlacementController(void)
 {
@@ -607,7 +583,7 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	end = tr.endpos;
 
 	//Show overlays of radius
-	if (g_debug_physcannon.GetBool())
+	if (true) // TODO
 	{
 		NDebugOverlay::Box(end, -Vector(2, 2, 2), Vector(2, 2, 2), 0, 255, 0, true, 0);
 
