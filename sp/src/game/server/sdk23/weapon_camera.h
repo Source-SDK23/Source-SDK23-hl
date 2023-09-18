@@ -10,6 +10,7 @@
 
 #include "basehlcombatweapon.h"
 #include "soundenvelope.h"
+#include "camera_placement.h"
 
 #ifndef WEAPON_CAMERA_H
 #define WEAPON_CAMERA_H
@@ -80,6 +81,8 @@ private:
 	bool m_bButtonsPressed; // To stop autofire
 
 	float m_flNextScale;
+
+	CPlacementController m_placementController;
 };
 
 #endif // WEAPON_FLAREGUN_H

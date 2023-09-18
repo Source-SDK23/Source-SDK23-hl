@@ -17,13 +17,16 @@
 #include "IEffects.h"
 #include "engine/IEngineSound.h"
 #include "vphysics/friction.h"
+#include "camera_placement.h"
 #include "weapon_camera.h"
+#include "physics_saverestore.h"
 
-// memdbgon must be the last include file in a .cpp file!!!
-#include "tier0/memdbgon.h"
 #include <saverestore_utlvector.h>
 #include <in_buttons.h>
 #include <props.h>
+
+// memdbgon must be the last include file in a .cpp file!!!
+#include "tier0/memdbgon.h"
 
 
 #define	CAMERA_MAX_INVENTORY 3 // Maximum inventory  slots
@@ -186,6 +189,11 @@ BEGIN_DATADESC(CWeaponCamera)
 	DEFINE_UTLVECTOR(m_vInventory, FIELD_EMBEDDED),
 	DEFINE_FIELD(m_iCurrentInventorySlot, FIELD_INTEGER),
 	DEFINE_FIELD(m_bButtonsPressed, FIELD_BOOLEAN),
+
+	DEFINE_EMBEDDED(m_placementController),
+
+	// Physptrs can't be inside embedded classes
+	DEFINE_PHYSPTR(m_placementController.m_controller),
 END_DATADESC()
 
 IMPLEMENT_SERVERCLASS_ST(CWeaponCamera, DT_WeaponCamera)
@@ -375,7 +383,7 @@ void CWeaponCamera::SecondaryAttack(void)
 		Msg("Cannot enter placement mode, empty inventory");
 		return;
 	}
-	if (m_iCurrentInventorySlot == m_vInventory.Count()) {
+	if (m_iCurrentInventorySlot >= m_vInventory.Count()) {
 		m_iCurrentInventorySlot = m_vInventory.Count(); // Update inventory slot if invalid
 	}
 
@@ -411,62 +419,11 @@ void CWeaponCamera::PlacementThink(void)
 	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
 
 	baseEntity->UpdateModelScale();
-	float entityRadius = baseEntity->CollisionProp()->BoundingRadius2D();
-	float entityHeight = baseEntity->CollisionProp()->OBBSize().z;
-
-	// 6 trace placement method (like Exposure, thanks to TNX for recommending this method)
-	Vector offset(0, 0, 0);
-	trace_t fTr; // Face Trace
-
-	// TODO: IMPROVE THIS ENTIRE PART
-
-	// +X
-	Vector faceEndCoords = Vector(MAX_TRACE_LENGTH, 0, 0);
-	UTIL_TraceLine(tr.endpos, faceEndCoords, MASK_SOLID, baseEntity, COLLISION_GROUP_NONE, &fTr);
-	if (abs(tr.endpos.x - fTr.endpos.x) < entityRadius) {
-		offset.x -= entityRadius- abs(tr.endpos.x - fTr.endpos.x);
-	}
-	else {
-		// -X
-		faceEndCoords = Vector(-MAX_TRACE_LENGTH, 0, 0);
-		UTIL_TraceLine(tr.endpos, faceEndCoords, MASK_SOLID, baseEntity, COLLISION_GROUP_NONE, &fTr);
-		if (abs(tr.endpos.x - fTr.endpos.x) < entityRadius) {
-			offset.x += entityRadius- abs(tr.endpos.x - fTr.endpos.x);
-		}
-	}
-
-	// +Y
-	faceEndCoords = Vector(0, MAX_TRACE_LENGTH, 0);
-	UTIL_TraceLine(tr.endpos, faceEndCoords, MASK_SOLID, baseEntity, COLLISION_GROUP_NONE, &fTr);
-	if (abs(tr.endpos.y - fTr.endpos.y) < entityRadius) {
-		offset.y -= entityRadius- abs(tr.endpos.y - fTr.endpos.y);
-	}
-	else {
-		// -Y
-		faceEndCoords = Vector(0, -MAX_TRACE_LENGTH, 0);
-		UTIL_TraceLine(tr.endpos, faceEndCoords, MASK_SOLID, baseEntity, COLLISION_GROUP_NONE, &fTr);
-		if (abs(tr.endpos.y - fTr.endpos.y) < entityRadius) {
-			offset.y += entityRadius- abs(tr.endpos.y - fTr.endpos.y);
-		}
-	}
-
-	// +Z
-	faceEndCoords = Vector(0, 0, MAX_TRACE_LENGTH);
-	UTIL_TraceLine(tr.endpos, faceEndCoords, MASK_SOLID, baseEntity, COLLISION_GROUP_NONE, &fTr);
-	if (abs(tr.endpos.z - fTr.endpos.z) < entityHeight) {
-		offset.z -= entityHeight-abs(tr.endpos.z - fTr.endpos.z);
-	}
-	else {
-		// -Z
-		//faceEndCoords = Vector(0, 0, -MAX_TRACE_LENGTH);
-		//UTIL_TraceLine(tr.endpos, faceEndCoords, MASK_SOLID, baseEntity, COLLISION_GROUP_NONE, &fTr);
-		//if (abs(tr.endpos.z - fTr.endpos.z) < entityHeight) {
-		//	offset.z += entityHeight-abs(tr.endpos.z - fTr.endpos.z);
-		//}
-	}
+	//float entityRadius = baseEntity->CollisionProp()->BoundingRadius2D();
+	//float entityHeight = baseEntity->CollisionProp()->OBBSize().z;
 
 	//baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
-	baseEntity->SetAbsOrigin(tr.endpos + offset);
+	baseEntity->SetAbsOrigin(tr.endpos);
 
 	SetNextThink(gpGlobals->curtime);// +0.1f);
 	camEntity.ShowEntity();
