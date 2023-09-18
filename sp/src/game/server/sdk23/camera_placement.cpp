@@ -531,17 +531,6 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer, float flError)
 	QAngle playerAngles = pPlayer->EyeAngles();
 	AngleVectors(playerAngles, &forward, &right, &up);
 
-	if (HL2GameRules()->MegaPhyscannonActive())
-	{
-		Vector los = (pEntity->WorldSpaceCenter() - pPlayer->Weapon_ShootPosition());
-		VectorNormalize(los);
-
-		float flDot = DotProduct(los, forward);
-
-		//Let go of the item if we turn around too fast.
-		if (flDot <= 0.35f)
-			return false;
-	}
 
 	float pitch = AngleDistance(playerAngles.x, 0);
 
@@ -647,17 +636,17 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer, float flError)
 // Player pickup controller
 //-----------------------------------------------------------------------------
 
-LINK_ENTITY_TO_CLASS(player_pickup, CCameraPlacementController);
+LINK_ENTITY_TO_CLASS(camera_placement, CCameraPlacementController);
 
 //---------------------------------------------------------
 // Save/Restore
 //---------------------------------------------------------
 BEGIN_DATADESC(CCameraPlacementController)
 
-DEFINE_EMBEDDED(m_grabController),
+DEFINE_EMBEDDED(m_placementController),
 
 // Physptrs can't be inside embedded classes
-DEFINE_PHYSPTR(m_grabController.m_controller),
+DEFINE_PHYSPTR(m_placementController.m_controller),
 
 DEFINE_FIELD(m_pPlayer, FIELD_CLASSPTR),
 
@@ -670,21 +659,7 @@ END_DATADESC()
 //-----------------------------------------------------------------------------
 void CCameraPlacementController::Init(CBasePlayer* pPlayer, CBaseEntity* pObject)
 {
-	// Holster player's weapon
-	if (pPlayer->GetActiveWeapon())
-	{
-		if (!pPlayer->GetActiveWeapon()->CanHolster() || !pPlayer->GetActiveWeapon()->Holster())
-		{
-			Shutdown();
-			return;
-		}
-	}
-
 	CHL2_Player* pOwner = (CHL2_Player*)ToBasePlayer(pPlayer);
-	if (pOwner)
-	{
-		pOwner->EnableSprint(false);
-	}
 
 	// If the target is debris, convert it to non-debris
 	if (pObject->GetCollisionGroup() == COLLISION_GROUP_DEBRIS)
@@ -695,20 +670,19 @@ void CCameraPlacementController::Init(CBasePlayer* pPlayer, CBaseEntity* pObject
 
 	// done so I'll go across level transitions with the player
 	SetParent(pPlayer);
-	m_grabController.SetIgnorePitch(true);
-	m_grabController.SetAngleAlignment(DOT_30DEGREE);
+	m_placementController.SetIgnorePitch(true);
+	m_placementController.SetAngleAlignment(DOT_30DEGREE);
 	m_pPlayer = pPlayer;
 	IPhysicsObject* pPhysics = pObject->VPhysicsGetObject();
 
 	Pickup_OnPhysGunPickup(pObject, m_pPlayer, PICKED_UP_BY_PLAYER);
 
-	m_grabController.AttachEntity(pPlayer, pObject, pPhysics, false, vec3_origin, false);
+	m_placementController.AttachEntity(pPlayer, pObject, pPhysics, false, vec3_origin, false);
 	// NVNT apply a downward force to simulate the mass of the held object.
 #if defined( WIN32 ) && !defined( _X360 )
-	HapticSetConstantForce(m_pPlayer, clamp(m_grabController.GetLoadWeight() * 0.1, 1, 6) * Vector(0, -1, 0));
+	HapticSetConstantForce(m_pPlayer, clamp(m_placementController.GetLoadWeight() * 0.1, 1, 6) * Vector(0, -1, 0));
 #endif
 
-	m_pPlayer->m_Local.m_iHideHUD |= HIDEHUD_WEAPONSELECTION;
 	m_pPlayer->SetUseEntity(this);
 }
 
@@ -719,7 +693,7 @@ void CCameraPlacementController::Init(CBasePlayer* pPlayer, CBaseEntity* pObject
 //-----------------------------------------------------------------------------
 void CCameraPlacementController::Shutdown(bool bThrown)
 {
-	CBaseEntity* pObject = m_grabController.GetAttached();
+	CBaseEntity* pObject = m_placementController.GetAttached();
 
 	bool bClearVelocity = false;
 	if (!bThrown && pObject && pObject->VPhysicsGetObject() && pObject->VPhysicsGetObject()->GetContactPoint(NULL, NULL))
@@ -727,7 +701,7 @@ void CCameraPlacementController::Shutdown(bool bThrown)
 		bClearVelocity = true;
 	}
 
-	m_grabController.DetachEntity(bClearVelocity);
+	m_placementController.DetachEntity(bClearVelocity);
 	// NVNT if we have a player, issue a zero constant force message
 #if defined( WIN32 ) && !defined( _X360 )
 	if (m_pPlayer)
@@ -741,24 +715,8 @@ void CCameraPlacementController::Shutdown(bool bThrown)
 	if (m_pPlayer)
 	{
 		CHL2_Player* pOwner = (CHL2_Player*)ToBasePlayer(m_pPlayer);
-		if (pOwner)
-		{
-			pOwner->EnableSprint(true);
-		}
 
 		m_pPlayer->SetUseEntity(NULL);
-		if (m_pPlayer->GetActiveWeapon())
-		{
-			if (!m_pPlayer->GetActiveWeapon()->Deploy())
-			{
-				// We tried to restore the player's weapon, but we couldn't.
-				// This usually happens when they're holding an empty weapon that doesn't
-				// autoswitch away when out of ammo. Switch to next best weapon.
-				m_pPlayer->SwitchToNextBestWeapon(NULL);
-			}
-		}
-
-		m_pPlayer->m_Local.m_iHideHUD &= ~HIDEHUD_WEAPONSELECTION;
 	}
 	Remove();
 }
@@ -768,11 +726,11 @@ void CCameraPlacementController::Use(CBaseEntity* pActivator, CBaseEntity* pCall
 {
 	if (ToBasePlayer(pActivator) == m_pPlayer)
 	{
-		CBaseEntity* pAttached = m_grabController.GetAttached();
+		CBaseEntity* pAttached = m_placementController.GetAttached();
 
 		// UNDONE: Use vphysics stress to decide to drop objects
 		// UNDONE: Must fix case of forcing objects into the ground you're standing on (causes stress) before that will work
-		if (!pAttached || useType == USE_OFF || (m_pPlayer->m_nButtons & IN_ATTACK2) || m_grabController.ComputeError() > 12)
+		if (!pAttached || useType == USE_OFF || (m_pPlayer->m_nButtons & IN_ATTACK2) || m_placementController.ComputeError() > 12)
 		{
 			Shutdown();
 			return;
@@ -786,40 +744,10 @@ void CCameraPlacementController::Use(CBaseEntity* pActivator, CBaseEntity* pCall
 			return;
 		}
 
-#if STRESS_TEST
-		vphysics_objectstress_t stress;
-		CalculateObjectStress(pPhys, pAttached, &stress);
-		if (stress.exertedStress > 250)
-		{
-			Shutdown();
-			return;
-		}
-#endif
-		// +ATTACK will throw phys objects
-		if (m_pPlayer->m_nButtons & IN_ATTACK)
-		{
-			Shutdown(true);
-			Vector vecLaunch;
-			m_pPlayer->EyeVectors(&vecLaunch);
-			// JAY: Scale this with mass because some small objects really go flying
-#ifdef MAPBASE
-			float massFactor = pPhys ? clamp(pPhys->GetMass(), 0.5, 15) : 7.5;
-#else
-			float massFactor = clamp(pPhys->GetMass(), 0.5, 15);
-#endif
-			massFactor = RemapVal(massFactor, 0.5, 15, 0.5, 4);
-			vecLaunch *= 1000 * massFactor;
-
-			pPhys->ApplyForceCenter(vecLaunch);
-			AngularImpulse aVel = RandomAngularImpulse(-10, 10) * massFactor;
-			pPhys->ApplyTorqueCenter(aVel);
-			return;
-		}
-
 		if (useType == USE_SET)
 		{
 			// update position
-			m_grabController.UpdateObject(m_pPlayer, 12);
+			m_placementController.UpdateObject(m_pPlayer, 12);
 		}
 	}
 }
@@ -831,7 +759,7 @@ void CCameraPlacementController::Use(CBaseEntity* pActivator, CBaseEntity* pCall
 //-----------------------------------------------------------------------------
 bool CCameraPlacementController::IsHoldingEntity(CBaseEntity* pEnt)
 {
-	return (m_grabController.GetAttached() == pEnt);
+	return (m_placementController.GetAttached() == pEnt);
 }
 
 void CameraPickupObject(CBasePlayer* pPlayer, CBaseEntity* pObject)

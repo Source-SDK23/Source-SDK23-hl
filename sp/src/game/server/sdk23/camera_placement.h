@@ -102,16 +102,16 @@ public:
 	void Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType, float value);
 	void OnRestore()
 	{
-		m_grabController.OnRestore();
+		m_placementController.OnRestore();
 	}
 	void VPhysicsUpdate(IPhysicsObject* pPhysics) {}
 	void VPhysicsShadowUpdate(IPhysicsObject* pPhysics) {}
 
 	bool IsHoldingEntity(CBaseEntity* pEnt);
-	CPlacementController& GetGrabController() { return m_grabController; }
+	CPlacementController& GetGrabController() { return m_placementController; }
 
 private:
-	CPlacementController		m_grabController;
+	CPlacementController		m_placementController;
 	CBasePlayer* m_pPlayer;
 };
 
