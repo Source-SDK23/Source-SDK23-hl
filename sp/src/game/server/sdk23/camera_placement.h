@@ -35,7 +35,7 @@ public:
 	void DetachEntity(bool bClearVelocity);
 	void OnRestore();
 
-	bool UpdateObject(CBasePlayer* pPlayer, float flError);
+	bool UpdateObject(CBasePlayer* pPlayer);
 
 	void SetTargetPosition(const Vector& target, const QAngle& targetOrientation);
 	float ComputeError();
@@ -84,35 +84,6 @@ private:
 	CBasePlayer* m_pControllingPlayer;
 
 	friend class CWeaponPhysCannon;
-};
-
-
-
-//-----------------------------------------------------------------------------
-// Player pickup controller
-//-----------------------------------------------------------------------------
-class CCameraPlacementController : public CBaseEntity
-{
-	DECLARE_DATADESC();
-	DECLARE_CLASS(CCameraPlacementController, CBaseEntity);
-public:
-	void Init(CBasePlayer* pPlayer, CBaseEntity* pObject);
-	void Shutdown(bool bThrown = false);
-	bool OnControls(CBaseEntity* pControls) { return true; }
-	void Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType, float value);
-	void OnRestore()
-	{
-		m_placementController.OnRestore();
-	}
-	void VPhysicsUpdate(IPhysicsObject* pPhysics) {}
-	void VPhysicsShadowUpdate(IPhysicsObject* pPhysics) {}
-
-	bool IsHoldingEntity(CBaseEntity* pEnt);
-	CPlacementController& GetGrabController() { return m_placementController; }
-
-private:
-	CPlacementController		m_placementController;
-	CBasePlayer* m_pPlayer;
 };
 
 #endif

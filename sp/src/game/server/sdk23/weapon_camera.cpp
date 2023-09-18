@@ -131,7 +131,7 @@ void CCameraEntity::CaptureEntity(void) {
 	m_bAwake = baseEntity->VPhysicsGetObject()->IsGravityEnabled() || baseEntity->VPhysicsGetObject()->IsMotionEnabled();
 
 	//baseEntity->SetSolid(SOLID_NONE);
-	baseEntity->SetMoveType(MOVETYPE_NONE);
+	//baseEntity->SetMoveType(MOVETYPE_NONE);
 
 	HideEntity();
 }
@@ -171,8 +171,8 @@ void CCameraEntity::ShowEntity(void) {
 void CCameraEntity::HideEntity(void) {
 	CBaseEntity* baseEntity = m_hEntity.Get();
 
-	baseEntity->SetAbsOrigin(Vector(3000, 3000, 3000));
-	baseEntity->AddEffects(EF_NODRAW);
+	//baseEntity->SetAbsOrigin(Vector(3000, 3000, 3000));
+	//baseEntity->AddEffects(EF_NODRAW);
 	baseEntity->VPhysicsGetObject()->SetPosition(baseEntity->GetAbsOrigin(), baseEntity->GetAbsAngles(), true); // Update collider
 }
 
@@ -344,6 +344,7 @@ void CWeaponCamera::PrimaryAttack(void)
 		CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
 		SetThink(NULL); // No longer in placement mode
 		PlacementThink(); // This is required, don't remember why tho
+		m_placementController.DetachEntity(false); // TODO
 		camEntity.RestoreEntity();
 		m_vInventory.Remove(m_iCurrentInventorySlot); // Remove from inventory
 		m_iCameraState = CAMERA_NORMAL;
@@ -390,6 +391,13 @@ void CWeaponCamera::SecondaryAttack(void)
 	m_iCameraState = CAMERA_PLACEMENT; // Set camera state
 	SetThink(&CWeaponCamera::PlacementThink);
 
+	// Set placement controller
+	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
+	CBaseEntity* baseEntity = dynamic_cast<CBaseEntity*>(camEntity.GetEntity());
+	m_placementController.SetIgnorePitch( false );
+	m_placementController.SetAngleAlignment( 0 );
+	m_placementController.AttachEntity(ToBasePlayer(GetOwner()), baseEntity, baseEntity->VPhysicsGetObject(), false, vec3_origin, false);
+
 	// Play placement mode sound
 	CPASAttenuationFilter filter(this);
 	EmitSound(filter, entindex(), CAMERA_PLACEMENT_SOUND);
@@ -411,30 +419,10 @@ void CWeaponCamera::PlacementThink(void)
 
 	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
 	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
-	IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
+	//IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
 
-	Vector facingVector;
-	AngleVectors(pOwner->EyeAngles(), &facingVector);
-
-	trace_t tr;
-	CTraceFilterSkipTwoEntities traceFilter(pOwner, baseEntity, COLLISION_GROUP_NONE);
-	UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, &traceFilter, &tr);
-
-	baseEntity->UpdateModelScale();
-	//float entityRadius = baseEntity->CollisionProp()->BoundingRadius2D();
-	//float entityHeight = baseEntity->CollisionProp()->OBBSize().z;
-
-	//baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
-	baseEntity->SetAbsOrigin(tr.endpos);
-
-	// Slide along the current contact points to fix bouncing problems
-	Vector velocity;
-	AngularImpulse angVel;
-	pObject->GetVelocity(&velocity, &angVel);
-	PhysComputeSlideDirection(pObject, velocity, angVel, &velocity, &angVel, pObject->GetMass());
-	pObject->SetVelocityInstantaneous(&velocity, NULL);
-
-	Msg("\nVel: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
+	m_placementController.UpdateObject(pOwner);
+	Msg("\nLoc: (%f, %f, %f)", baseEntity->GetAbsOrigin().x, baseEntity->GetAbsOrigin().y, baseEntity->GetAbsOrigin().z);
 
 	SetNextThink(gpGlobals->curtime);// +0.1f);
 	camEntity.ShowEntity();
