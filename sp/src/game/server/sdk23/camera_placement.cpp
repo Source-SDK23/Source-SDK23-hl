@@ -90,11 +90,6 @@ DEFINE_FIELD(m_bAllowObjectOverhead, FIELD_BOOLEAN),
 
 END_DATADESC()
 
-
-// TODO
-//const float DEFAULT_MAX_ANGULAR = 360.0f * 10.0f;
-//const float REDUCED_CARRY_MASS = 1.0f;
-
 CPlacementController::CPlacementController(void)
 {
 	m_shadow.dampFactor = 1.0;
@@ -102,7 +97,7 @@ CPlacementController::CPlacementController(void)
 	m_errorTime = 0;
 	m_error = 0;
 	// make this controller really stiff!
-	m_shadow.maxSpeed = 1000;
+	m_shadow.maxSpeed = 100000;		// Make velocity so high it effectively teleports to the location
 	m_shadow.maxAngular = DEFAULT_MAX_ANGULAR;
 	m_shadow.maxDampSpeed = m_shadow.maxSpeed * 2;
 	m_shadow.maxDampAngular = m_shadow.maxAngular;
@@ -208,7 +203,7 @@ float CPlacementController::ComputeError()
 
 void CPlacementController::ComputeMaxSpeed(CBaseEntity* pEntity, IPhysicsObject* pPhysics)
 {
-	m_shadow.maxSpeed = 1000;
+	m_shadow.maxSpeed = 100000;
 	/*m_shadow.maxAngular = DEFAULT_MAX_ANGULAR;
 
 	// Compute total mass...
@@ -276,7 +271,7 @@ void CPlacementController::AttachEntity(CBasePlayer* pPlayer, CBaseEntity* pEnti
 	// If it has a preferred orientation, use that instead.
 	Pickup_GetPreferredCarryAngles(pEntity, pPlayer, pPlayer->EntityToWorldTransform(), angles);
 
-	//	ComputeMaxSpeed( pEntity, pPhys );
+	ComputeMaxSpeed( pEntity, pPhys );
 
 		// If we haven't been killed by a grab, we allow the gun to grab the nearest part of a ragdoll
 	if (bUseGrabPosition)
@@ -549,7 +544,7 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	CTraceFilterSkipTwoEntities traceFilter(pPlayer, pEntity, COLLISION_GROUP_NONE);
 	Ray_t ray;
 	ray.Init(start, end);
-	enginetrace->TraceRay(ray, MASK_SOLID_BRUSHONLY, &traceFilter, &tr);
+	enginetrace->TraceRay(ray, MASK_SOLID, &traceFilter, &tr);
 
 	end = tr.endpos;
 
