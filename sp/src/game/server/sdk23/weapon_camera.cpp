@@ -413,28 +413,69 @@ void CWeaponCamera::PlacementThink(void)
 	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
 	IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
 
-	Vector facingVector;
-	AngleVectors(pOwner->EyeAngles(), &facingVector);
+	Vector forward, right, up;
+	QAngle playerAngles = pOwner->EyeAngles();
+	AngleVectors(playerAngles, &forward, &right, &up);
 
-	trace_t tr;
+	//float pitch = AngleDistance(playerAngles.x, 0);
+
+	// Now clamp a sphere of object radius at end to the player's bbox
+	Vector radial = physcollision->CollideGetExtent(pObject->GetCollide(), vec3_origin, baseEntity->GetAbsAngles(), -forward);
+	Vector player2d = pOwner->CollisionProp()->OBBMaxs();
+	float playerRadius = player2d.Length2D();
+	float radius = playerRadius + fabs(DotProduct(forward, radial));
+
+	float distance = 50 + (radius * 2.0f);
+
+	Vector start = pOwner->Weapon_ShootPosition();
+	Vector end = start + (forward * distance);
+
+	trace_t	tr;
 	CTraceFilterSkipTwoEntities traceFilter(pOwner, baseEntity, COLLISION_GROUP_NONE);
-	UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, &traceFilter, &tr);
+	Ray_t ray;
+	ray.Init(start, end);
+	enginetrace->TraceRay(ray, MASK_SOLID_BRUSHONLY, &traceFilter, &tr);
 
-	baseEntity->UpdateModelScale();
-	//float entityRadius = baseEntity->CollisionProp()->BoundingRadius2D();
-	//float entityHeight = baseEntity->CollisionProp()->OBBSize().z;
+	if (tr.fraction < 0.5)
+	{
+		end = start + forward * (radius * 0.5f);
+	}
+	else if (tr.fraction <= 1.0f)
+	{
+		end = start + forward * (distance - radius);
+	}
+	Vector playerMins, playerMaxs, nearest;
+	pOwner->CollisionProp()->WorldSpaceAABB(&playerMins, &playerMaxs);
+	Vector playerLine = pOwner->CollisionProp()->WorldSpaceCenter();
+	CalcClosestPointOnLine(end, playerLine + Vector(0, 0, playerMins.z), playerLine + Vector(0, 0, playerMaxs.z), nearest, NULL);
 
-	//baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
-	baseEntity->SetAbsOrigin(tr.endpos);
+	//Show overlays of radius
+	if (true)
+	{
+		NDebugOverlay::Box(end, -Vector(2, 2, 2), Vector(2, 2, 2), 0, 255, 0, true, 0);
 
-	// Slide along the current contact points to fix bouncing problems
-	Vector velocity;
-	AngularImpulse angVel;
-	pObject->GetVelocity(&velocity, &angVel);
-	PhysComputeSlideDirection(pObject, velocity, angVel, &velocity, &angVel, pObject->GetMass());
-	pObject->SetVelocityInstantaneous(&velocity, NULL);
+		NDebugOverlay::Box(baseEntity->WorldSpaceCenter(),
+			-Vector(radius, radius, radius),
+			Vector(radius, radius, radius),
+			255, 0, 0,
+			true,
+			0.0f);
+	}
 
-	Msg("\nVel: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
+	//QAngle angles = TransformAnglesFromPlayerSpace(m_attachedAnglesPlayerSpace, pPlayer);
+
+	// If it has a preferred orientation, update to ensure we're still oriented correctly.
+	//Pickup_GetPreferredCarryAngles(baseEntity, pOwner, pPlayer->EntityToWorldTransform(), angles);
+
+	matrix3x4_t attachedToWorld;
+	Vector offset;
+	//AngleMatrix(angles, attachedToWorld);
+	//VectorRotate(m_attachedPositionObjectSpace, attachedToWorld, offset);
+
+	baseEntity->SetAbsOrigin(end - offset);
+	//baseEntity->SetAbsAngles(angles);
+
+	//Msg("\nVel: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
 
 	SetNextThink(gpGlobals->curtime);// +0.1f);
 	camEntity.ShowEntity();
