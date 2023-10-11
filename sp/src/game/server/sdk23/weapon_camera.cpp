@@ -424,17 +424,66 @@ void CWeaponCamera::PlacementThink(void)
 	//float entityRadius = baseEntity->CollisionProp()->BoundingRadius2D();
 	//float entityHeight = baseEntity->CollisionProp()->OBBSize().z;
 
+	// Get object bounding box info
+	Vector obbMins = baseEntity->CollisionProp()->OBBMins();
+	Vector obbMaxs = baseEntity->CollisionProp()->OBBMaxs();
+	Vector obbSize = baseEntity->CollisionProp()->OBBSize();
+	float boundingRadius = baseEntity->CollisionProp()->BoundingRadius();
+
 	//baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
-	baseEntity->SetAbsOrigin(tr.endpos);
+	Vector endPosition = tr.endpos;
+
+	// Offset endPosition in opposite direction to normal
+	trace_t trNormal;
+	UTIL_TraceLine(endPosition + (tr.plane.normal * boundingRadius), endPosition, MASK_SOLID, &traceFilter, &trNormal);
+	endPosition = trNormal.endpos;
+
+	baseEntity->SetAbsOrigin(endPosition);
+
+	// Run 6 entitytraces, one in each direction to determine the normals to offset by
+	trace_t trXp;
+	UTIL_TraceEntity(baseEntity, endPosition - (Vector(1, 0, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trXp);
+	trace_t trXn;
+	UTIL_TraceEntity(baseEntity, endPosition - (Vector(-1, 0, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trXn);
+	trace_t trYp;
+	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, 1, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trYp);
+	trace_t trYn;
+	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, -1, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trYn);
+	trace_t trZp;
+	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, 0, 1) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trZp);
+	trace_t trZn;
+	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, 0, -1) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trZn);
+
+	// Calculate final offset vector
+	if (trXp.DidHit() && trXp.plane.normal.x != 0) {
+		endPosition.x = trXp.endpos.x;
+	} else if (trXn.DidHit() && trXn.plane.normal.x != 0) {
+		endPosition.x = trXn.endpos.x;
+	}
+	if (trYp.DidHit() && trYp.plane.normal.y != 0) {
+		endPosition.y = trYp.endpos.y;
+	} else if (trYn.DidHit() && trYn.plane.normal.y != 0) {
+		endPosition.y = trYn.endpos.y;
+	}
+	if (trZp.DidHit() && trZp.plane.normal.z != 0) {
+		endPosition.z = trZp.endpos.z;
+	} else if (trZn.DidHit() && trZn.plane.normal.z != 0) {
+		endPosition.z = trZn.endpos.z;
+	}
+	baseEntity->SetAbsOrigin(endPosition);
+
+	Msg("\n\n");
+	Msg("\nNormalX+: (%f, %f, %f)", trXp.plane.normal.x, trXp.plane.normal.y, trXp.plane.normal.z);
+	Msg("\nNormalX-: (%f, %f, %f)", trXn.plane.normal.x, trXn.plane.normal.y, trXn.plane.normal.z);
+	Msg("\nNormalY+: (%f, %f, %f)", trYp.plane.normal.x, trYp.plane.normal.y, trYp.plane.normal.z);
+	Msg("\nNormalY-: (%f, %f, %f)", trYn.plane.normal.x, trYn.plane.normal.y, trYn.plane.normal.z);
+	Msg("\nNormalZ+: (%f, %f, %f)", trZp.plane.normal.x, trZp.plane.normal.y, trZp.plane.normal.z);
+	Msg("\nNormalZ-: (%f, %f, %f)", trZn.plane.normal.x, trZn.plane.normal.y, trZn.plane.normal.z);
 
 	// Slide along the current contact points to fix bouncing problems
 	Vector velocity;
 	AngularImpulse angVel;
 	pObject->GetVelocity(&velocity, &angVel);
-	PhysComputeSlideDirection(pObject, velocity, angVel, &velocity, &angVel, pObject->GetMass());
-	pObject->SetVelocityInstantaneous(&velocity, NULL);
-
-	Msg("\nVel: (%f, %f, %f)", velocity.x, velocity.y, velocity.z);
 
 	SetNextThink(gpGlobals->curtime);// +0.1f);
 	camEntity.ShowEntity();
