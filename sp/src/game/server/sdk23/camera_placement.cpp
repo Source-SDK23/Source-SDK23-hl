@@ -89,36 +89,6 @@ END_DATADESC()
 const float DEFAULT_MAX_ANGULAR = 360.0f * 10.0f;
 const float REDUCED_CARRY_MASS = 1.0f;
 
-BEGIN_SIMPLE_DATADESC(CPlacementController)
-
-DEFINE_EMBEDDED(m_shadow),
-
-DEFINE_FIELD(m_timeToArrive, FIELD_FLOAT),
-DEFINE_FIELD(m_errorTime, FIELD_FLOAT),
-DEFINE_FIELD(m_error, FIELD_FLOAT),
-DEFINE_FIELD(m_contactAmount, FIELD_FLOAT),
-DEFINE_AUTO_ARRAY(m_savedRotDamping, FIELD_FLOAT),
-DEFINE_AUTO_ARRAY(m_savedMass, FIELD_FLOAT),
-DEFINE_FIELD(m_flLoadWeight, FIELD_FLOAT),
-DEFINE_FIELD(m_bCarriedEntityBlocksLOS, FIELD_BOOLEAN),
-DEFINE_FIELD(m_bIgnoreRelativePitch, FIELD_BOOLEAN),
-DEFINE_FIELD(m_attachedEntity, FIELD_EHANDLE),
-DEFINE_FIELD(m_angleAlignment, FIELD_FLOAT),
-DEFINE_FIELD(m_vecPreferredCarryAngles, FIELD_VECTOR),
-DEFINE_FIELD(m_bHasPreferredCarryAngles, FIELD_BOOLEAN),
-DEFINE_FIELD(m_flDistanceOffset, FIELD_FLOAT),
-DEFINE_FIELD(m_attachedAnglesPlayerSpace, FIELD_VECTOR),
-DEFINE_FIELD(m_attachedPositionObjectSpace, FIELD_VECTOR),
-DEFINE_FIELD(m_bAllowObjectOverhead, FIELD_BOOLEAN),
-
-// Physptrs can't be inside embedded classes
-// DEFINE_PHYSPTR( m_controller ),
-
-END_DATADESC()
-
-const float DEFAULT_MAX_ANGULAR = 360.0f * 10.0f;
-const float REDUCED_CARRY_MASS = 1.0f;
-
 CPlacementController::CPlacementController(void)
 {
 	m_shadow.dampFactor = 1.0;
@@ -237,7 +207,7 @@ void CPlacementController::ComputeMaxSpeed(CBaseEntity* pEntity, IPhysicsObject*
 
 	// Compute total mass...
 	float flMass = PhysGetEntityMass(pEntity);
-	float flMaxMass = 100; // Physcannon max mass TODO
+	float flMaxMass = 250;
 	if (flMass <= flMaxMass)
 		return;
 
@@ -438,7 +408,7 @@ void CPlacementController::DetachEntity(bool bClearVelocity)
 			}
 			else
 			{
-				ClampPhysicsVelocity(pPhys, 190 * 1.5f, 2.0f * 360.0f); // Normspeed TODO
+				ClampPhysicsVelocity(pPhys, 190 * 1.5f, 2.0f * 360.0f);
 			}
 
 		}
@@ -540,16 +510,15 @@ bool CPlacementController::IsObjectAllowedOverhead(CBaseEntity* pEntity)
 	return false;
 }
 
-
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
-bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
+bool CPlacementController::UpdateObject(CBasePlayer* pPlayer, float flError)
 {
 	CBaseEntity* pEntity = GetAttached();
-	/*if (!pEntity || ComputeError() > flError || pPlayer->GetGroundEntity() == pEntity || !pEntity->VPhysicsGetObject())
+	if (!pEntity || ComputeError() > flError || pPlayer->GetGroundEntity() == pEntity || !pEntity->VPhysicsGetObject())
 	{
 		return false;
-	}*/
+	}
 
 	//Adrian: Oops, our object became motion disabled, let go!
 	IPhysicsObject* pPhys = pEntity->VPhysicsGetObject();
@@ -562,17 +531,6 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	QAngle playerAngles = pPlayer->EyeAngles();
 	AngleVectors(playerAngles, &forward, &right, &up);
 
-	if (HL2GameRules()->MegaPhyscannonActive())
-	{
-		Vector los = (pEntity->WorldSpaceCenter() - pPlayer->Weapon_ShootPosition());
-		VectorNormalize(los);
-
-		float flDot = DotProduct(los, forward);
-
-		//Let go of the item if we turn around too fast.
-		if (flDot <= 0.35f)
-			return false;
-	}
 
 	float pitch = AngleDistance(playerAngles.x, 0);
 
@@ -593,7 +551,10 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	float playerRadius = player2d.Length2D();
 	float radius = playerRadius + fabs(DotProduct(forward, radial));
 
-	float distance = MAX_TRACE_LENGTH;
+	float distance = 24 + (radius * 2.0f);
+
+	// Add the prop's distance offset
+	distance += m_flDistanceOffset;
 
 	Vector start = pPlayer->Weapon_ShootPosition();
 	Vector end = start + (forward * distance);
@@ -604,10 +565,21 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	ray.Init(start, end);
 	enginetrace->TraceRay(ray, MASK_SOLID_BRUSHONLY, &traceFilter, &tr);
 
-	end = tr.endpos;
+	if (tr.fraction < 0.5)
+	{
+		end = start + forward * (radius * 0.5f);
+	}
+	else if (tr.fraction <= 1.0f)
+	{
+		end = start + forward * (distance - radius);
+	}
+	Vector playerMins, playerMaxs, nearest;
+	pPlayer->CollisionProp()->WorldSpaceAABB(&playerMins, &playerMaxs);
+	Vector playerLine = pPlayer->CollisionProp()->WorldSpaceCenter();
+	CalcClosestPointOnLine(end, playerLine + Vector(0, 0, playerMins.z), playerLine + Vector(0, 0, playerMaxs.z), nearest, NULL);
 
 	//Show overlays of radius
-	if (g_debug_physcannon.GetBool())
+	if (true) // TODO
 	{
 		NDebugOverlay::Box(end, -Vector(2, 2, 2), Vector(2, 2, 2), 0, 255, 0, true, 0);
 
@@ -640,6 +612,154 @@ bool CPlacementController::UpdateObject(CBasePlayer* pPlayer)
 	SetTargetPosition(end - offset, angles);
 
 	return true;
+}
+
+
+
+
+
+
+
+
+
+//-----------------------------------------------------------------------------
+// Player pickup controller
+//-----------------------------------------------------------------------------
+
+LINK_ENTITY_TO_CLASS(camera_placement, CCameraPlacementController);
+
+//---------------------------------------------------------
+// Save/Restore
+//---------------------------------------------------------
+BEGIN_DATADESC(CCameraPlacementController)
+
+DEFINE_EMBEDDED(m_placementController),
+
+// Physptrs can't be inside embedded classes
+DEFINE_PHYSPTR(m_placementController.m_controller),
+
+DEFINE_FIELD(m_pPlayer, FIELD_CLASSPTR),
+
+END_DATADESC()
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pPlayer - 
+//			*pObject - 
+//-----------------------------------------------------------------------------
+void CCameraPlacementController::Init(CBasePlayer* pPlayer, CBaseEntity* pObject)
+{
+	// If the target is debris, convert it to non-debris
+	if (pObject->GetCollisionGroup() == COLLISION_GROUP_DEBRIS)
+	{
+		// Interactive debris converts back to debris when it comes to rest
+		pObject->SetCollisionGroup(COLLISION_GROUP_INTERACTIVE_DEBRIS);
+	}
+
+	// done so I'll go across level transitions with the player
+	SetParent(pPlayer);
+	m_placementController.SetIgnorePitch(true);
+	m_placementController.SetAngleAlignment(DOT_30DEGREE);
+	m_pPlayer = pPlayer;
+	IPhysicsObject* pPhysics = pObject->VPhysicsGetObject();
+
+	Pickup_OnPhysGunPickup(pObject, m_pPlayer, PICKED_UP_BY_PLAYER);
+
+	m_placementController.AttachEntity(pPlayer, pObject, pPhysics, false, vec3_origin, false);
+	// NVNT apply a downward force to simulate the mass of the held object.
+#if defined( WIN32 ) && !defined( _X360 )
+	HapticSetConstantForce(m_pPlayer, clamp(m_placementController.GetLoadWeight() * 0.1, 1, 6) * Vector(0, -1, 0));
+#endif
+
+	m_pPlayer->SetUseEntity(this);
+}
+
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : bool - 
+//-----------------------------------------------------------------------------
+void CCameraPlacementController::Shutdown(bool bThrown)
+{
+	CBaseEntity* pObject = m_placementController.GetAttached();
+
+	bool bClearVelocity = false;
+	if (!bThrown && pObject && pObject->VPhysicsGetObject() && pObject->VPhysicsGetObject()->GetContactPoint(NULL, NULL))
+	{
+		bClearVelocity = true;
+	}
+
+	m_placementController.DetachEntity(bClearVelocity);
+	// NVNT if we have a player, issue a zero constant force message
+#if defined( WIN32 ) && !defined( _X360 )
+	if (m_pPlayer)
+		HapticSetConstantForce(m_pPlayer, Vector(0, 0, 0));
+#endif
+	if (pObject != NULL)
+	{
+		Pickup_OnPhysGunDrop(pObject, m_pPlayer, bThrown ? THROWN_BY_PLAYER : DROPPED_BY_PLAYER);
+	}
+
+	if (m_pPlayer)
+	{
+		m_pPlayer->SetUseEntity(NULL);
+	}
+	Remove();
+}
+
+
+void CCameraPlacementController::Use(CBaseEntity* pActivator, CBaseEntity* pCaller, USE_TYPE useType, float value)
+{
+	if (ToBasePlayer(pActivator) == m_pPlayer)
+	{
+		CBaseEntity* pAttached = m_placementController.GetAttached();
+
+		// UNDONE: Use vphysics stress to decide to drop objects
+		// UNDONE: Must fix case of forcing objects into the ground you're standing on (causes stress) before that will work
+		if (!pAttached || useType == USE_OFF || (m_pPlayer->m_nButtons & IN_ATTACK2) || m_placementController.ComputeError() > 12)
+		{
+			Shutdown();
+			return;
+		}
+
+		//Adrian: Oops, our object became motion disabled, let go!
+		IPhysicsObject* pPhys = pAttached->VPhysicsGetObject();
+		if (pPhys && pPhys->IsMoveable() == false)
+		{
+			Shutdown();
+			return;
+		}
+
+		if (useType == USE_SET)
+		{
+			// update position
+			m_placementController.UpdateObject(m_pPlayer, 12);
+		}
+	}
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: 
+// Input  : *pEnt - 
+// Output : Returns true on success, false on failure.
+//-----------------------------------------------------------------------------
+bool CCameraPlacementController::IsHoldingEntity(CBaseEntity* pEnt)
+{
+	return (m_placementController.GetAttached() == pEnt);
+}
+
+void CameraPickupObject(CBasePlayer* pPlayer, CBaseEntity* pObject)
+{
+	//Don't pick up if we don't have a phys object.
+	if (pObject->VPhysicsGetObject() == NULL)
+		return;
+
+	CCameraPlacementController* pController = (CCameraPlacementController*)CBaseEntity::Create("player_pickup", pObject->GetAbsOrigin(), vec3_angle, pPlayer);
+
+	if (!pController)
+		return;
+
+	pController->Init(pPlayer, pObject);
 }
 
 //-----------------------------------------------------------------------------
