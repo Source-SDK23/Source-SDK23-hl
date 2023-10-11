@@ -62,17 +62,15 @@ public:
 	DECLARE_SERVERCLASS();
 
 	void Precache(void);
-	void PrimaryAttack(void);							// Used to Zoom, Capture and Place
-	void SecondaryAttack(void);							// Used to enter/exit Placement Mode
-	void ItemPostFrame(void);							// Used to get input
+	void PrimaryAttack(void);
+	void SecondaryAttack(void);
+	void ItemPostFrame(void);
 
-	void InitPlacementController(bool showEntity);		// Used to initialise the placement controller (and also enters placement mode)
-	void DeInitPlacementController(bool hideEntity);	// Used to detach the entity from the placement controller (and also exits placement mode)
-	void PlacementThink(void);							// Handle placement "logic"
-	
-	void SetZoom(bool zoom);							// Used to enter the Zoom HUD or Exit it
-	void SetSlot(int slot);								// Used to change the camera slot whilst in placement mode
-	void SetScale(bool scaleUp);						// Used to change the scale of an object whilst in placement mode
+	void SetZoom(bool zoom);
+	void SetSlot(int slot);
+	void SetScale(bool scaleUp);
+
+	void PlacementThink(void);
 
 	DECLARE_DATADESC();
 private:

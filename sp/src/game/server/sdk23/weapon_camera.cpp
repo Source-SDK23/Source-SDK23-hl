@@ -222,8 +222,6 @@ void CWeaponCamera::Precache(void)
 }
 
 
-
-
 //-----------------------------------------------------------------------------
 // Purpose: Keypress detection (stolen from... something else... I don't remember what tho)
 //-----------------------------------------------------------------------------
@@ -284,8 +282,6 @@ void CWeaponCamera::ItemPostFrame(void)
 }
 
 
-
-
 //-----------------------------------------------------------------------------
 // Purpose: Main button (place object, switch to zoom mode, capture)
 //-----------------------------------------------------------------------------
@@ -305,19 +301,15 @@ void CWeaponCamera::PrimaryAttack(void)
 
 	// Basically a state machine /j
 	switch (m_iCameraState) {
-
-	// If camera is in normal state, enter zoom mode
 	case CAMERA_NORMAL:
 		SetZoom(true); // Zoom in
 		m_iCameraState = CAMERA_ZOOM; // Zoom
 		break;
 
-
-	// If camera is in zoom mode, capture object
 	case CAMERA_ZOOM:
 		// Unzoom
 		SetZoom(false);
-		m_iCameraState = CAMERA_NORMAL; // Reset camera state to normal
+		m_iCameraState = CAMERA_NORMAL;
 
 		if (m_vInventory.Count() == CAMERA_MAX_INVENTORY) {
 			Msg("CANNOT CAPTURE! INVENTORY IS FULL");
@@ -329,7 +321,7 @@ void CWeaponCamera::PrimaryAttack(void)
 		UTIL_TraceLine(pOwner->EyePosition(), pOwner->EyePosition() + (facingVector * MAX_TRACE_LENGTH), MASK_SOLID, pOwner, COLLISION_GROUP_NONE, &tr);
 
 		if (tr.m_pEnt) {
-			for (int i = 0; i < CaptureBlacklistLen; i++) { // Do not capture blacklisted names
+			for (int i = 0; i < CaptureBlacklistLen; i++) {
 				if (FClassnameIs(tr.m_pEnt, CaptureBlacklist[i])) {
 					Msg("Cannot capture object, blacklisted");
 					return;
@@ -348,26 +340,24 @@ void CWeaponCamera::PrimaryAttack(void)
 		}
 		break;
 
-
-	// If in placement mode, place the object
-	case CAMERA_PLACEMENT:
+	case CAMERA_PLACEMENT: // If in placement mode, place the object
 		CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
-		DeInitPlacementController(false);				// Remove the placement controller
-		camEntity.RestoreEntity();						// Restore the entity
-		m_vInventory.Remove(m_iCurrentInventorySlot);	// Remove the entity from inventory
-		m_iCameraState = CAMERA_NORMAL;					// Reset camera state
+		SetThink(NULL); // No longer in placement mode
+		PlacementThink(); // This is required, don't remember why tho
+		m_placementController.DetachEntity(false); // TODO
+		camEntity.RestoreEntity();
+		m_vInventory.Remove(m_iCurrentInventorySlot); // Remove from inventory
+		m_iCameraState = CAMERA_NORMAL;
 
 		m_iCurrentInventorySlot = max(m_vInventory.Count() - 1, 0); // Set inventory slot to either 0 or last item
-		EmitSound(filter, entindex(), CAMERA_PLACE_SOUND);			// Make placement sound
+		EmitSound(filter, entindex(), CAMERA_PLACE_SOUND);
 		break;
 	}
 }
 
 
-
-
 //-----------------------------------------------------------------------------
-// Purpose: Enters placement mode whilst exiting other modes
+// Purpose: Placement mode button (exit zoom mode, switch to placement mode)
 //-----------------------------------------------------------------------------
 void CWeaponCamera::SecondaryAttack(void)
 {
@@ -377,95 +367,66 @@ void CWeaponCamera::SecondaryAttack(void)
 	if (pOwner == NULL)
 		return;
 
-	
-	if (m_iCameraState == CAMERA_ZOOM) {				// Exit zoom mode
-		SetZoom(false);
+	// Switches directly to placement mode
+	if (m_iCameraState == CAMERA_ZOOM) { // Always exit soom
+		SetZoom(false); // Unzoom
 		m_iCameraState = CAMERA_NORMAL;
-	} else if (m_iCameraState == CAMERA_PLACEMENT) {	// Exit placement mode if already in it
+	}
+	if (m_iCameraState == CAMERA_PLACEMENT) { // Exit placement mode if already in it
 		SetThink(NULL);
 		m_vInventory[m_iCurrentInventorySlot].HideEntity();
 		m_iCameraState = CAMERA_NORMAL;
 		return;
 	}
 
-
-
 	// Switch to placement mode
 	if (m_vInventory.Count() == 0) {
 		Msg("Cannot enter placement mode, empty inventory");
 		return;
 	}
-	if (m_iCurrentInventorySlot == m_vInventory.Count()) {	// It is imposible for this to actually be greater so >= not needed
-		m_iCurrentInventorySlot = m_vInventory.Count();	// Update inventory slot if invalid
+	if (m_iCurrentInventorySlot == m_vInventory.Count()) { // It is imposible for this to actually be greater at the moment so >= not needed
+		m_iCurrentInventorySlot = m_vInventory.Count(); // Update inventory slot if invalid
 	}
 
 	m_iCameraState = CAMERA_PLACEMENT; // Set camera state
+	SetThink(&CWeaponCamera::PlacementThink);
 
-	// Init placement controller
-	InitPlacementController(true);
-	
+	// Set placement controller
+	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
+	CBaseEntity* baseEntity = dynamic_cast<CBaseEntity*>(camEntity.GetEntity());
+	m_placementController.SetIgnorePitch( false );
+	m_placementController.SetAngleAlignment( 0 );
+	m_placementController.AttachEntity(ToBasePlayer(GetOwner()), baseEntity, baseEntity->VPhysicsGetObject(), false, vec3_origin, false);
 
 	// Play placement mode sound
 	CPASAttenuationFilter filter(this);
 	EmitSound(filter, entindex(), CAMERA_PLACEMENT_SOUND);
 
 	m_flNextScale = gpGlobals->curtime;
+	SetNextThink(gpGlobals->curtime + 0.1f);
 }
 
 
-
-
 //-----------------------------------------------------------------------------
-// Purpose: Handle entering placement mode
+// Purpose: Handle placement mode
 //-----------------------------------------------------------------------------
-void CWeaponCamera::InitPlacementController(bool showEntity) {
-	// Get the current inventory slot and coresponding entity
+void CWeaponCamera::PlacementThink(void)
+{
+	CBasePlayer* pOwner = ToBasePlayer(GetOwner());
+
+	if (pOwner == NULL)
+		return;
+
 	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
-	CBaseEntity* baseEntity = dynamic_cast<CBaseEntity*>(camEntity.GetEntity()); // Get the actual captured entity
+	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
+	//IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
 
-	m_placementController.DetachEntity(true); // Detatch current entity from controller
+	m_placementController.UpdateObject(pOwner);
+	Msg("\nLoc: (%f, %f, %f)", baseEntity->GetAbsOrigin().x, baseEntity->GetAbsOrigin().y, baseEntity->GetAbsOrigin().z);
 
-	// Show object preview
-	if (showEntity) {
-		camEntity.ShowEntity();
-	}
-
-	m_placementController.SetIgnorePitch(false);	// TODO: Fix placement angles
-	m_placementController.SetAngleAlignment(0);		// TODO: Fix placement angles
-	m_placementController.AttachEntity(ToBasePlayer(GetOwner()), baseEntity, baseEntity->VPhysicsGetObject(), false, vec3_origin, false);
-	SetThink(&CWeaponCamera::PlacementThink);
-	SetNextThink(gpGlobals->curtime + 0.1f);
+	SetNextThink(gpGlobals->curtime);// +0.1f);
+	camEntity.ShowEntity();
 }
-
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Handle exiting placement mode
-//-----------------------------------------------------------------------------
-void CWeaponCamera::DeInitPlacementController(bool hideEntity) {
-	m_placementController.DetachEntity(true); // Detatch current entity from controller
-
-	// Show object preview
-	if (hideEntity) {
-		CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];	// Get the current inventory slot
-		camEntity.HideEntity();
-	}
-	SetThink(NULL);
-}
-
-
-
-
-//-----------------------------------------------------------------------------
-// Purpose: Handle placement mode logic via the controller
-//-----------------------------------------------------------------------------
-void CWeaponCamera::PlacementThink(void) {
-	m_placementController.UpdateObject(ToBasePlayer(GetOwner()));
-	SetNextThink(gpGlobals->curtime + 0.1f);
-}
-
-
 
 
 //-----------------------------------------------------------------------------
@@ -480,8 +441,8 @@ void CWeaponCamera::SetZoom(bool zoom)
 	
 	CSingleUserRecipientFilter filter(pOwner);
 	if (zoom) {
-		pOwner->SetFOV(this, 30, 0.2f);						// Actually zoom
-		UserMessageBegin(filter, "ShowCameraViewfinder");	// Show the clientside camera HUD
+		pOwner->SetFOV(this, 30, 0.2f);
+		UserMessageBegin(filter, "ShowCameraViewfinder");
 		WRITE_BYTE(1);
 		MessageEnd();
 
@@ -490,18 +451,16 @@ void CWeaponCamera::SetZoom(bool zoom)
 		EmitSound(filter, entindex(), CAMERA_ZOOM_SOUND);
 	}
 	else {
-		pOwner->SetFOV(this, 0, 0.1f);						// Reset zoom
-		UserMessageBegin(filter, "ShowCameraViewfinder");	// Hide the clientside camera HUD
+		pOwner->SetFOV(this, 0, 0.1f);
+		UserMessageBegin(filter, "ShowCameraViewfinder");
 		WRITE_BYTE(0);
 		MessageEnd();
 	}
 }
 
 
-
-
 //-----------------------------------------------------------------------------
-// Purpose: Set slot and enter placement mode if not already in it (called when number keys are pressed)
+// Purpose: Set slot and enter placement mode if not already in it
 //-----------------------------------------------------------------------------
 void CWeaponCamera::SetSlot(int slot)
 {
@@ -510,21 +469,16 @@ void CWeaponCamera::SetSlot(int slot)
 	if (pOwner == NULL)
 		return;
 
-	if (slot >= m_vInventory.Count() || slot < 0) {	// Check if the camera slot can be used
+	if (slot >= m_vInventory.Count() || slot < 0) {
 		Msg("Invalid Slot, OOB");
 		return;
 	}
 
-	if (m_iCameraState == CAMERA_PLACEMENT) {
-		DeInitPlacementController(true);				// Detatch the current object and hide it (if possible)
+	m_iCurrentInventorySlot = slot;
+	if (m_iCameraState != CAMERA_PLACEMENT) {
+		SecondaryAttack();
 	}
-	
-	m_iCurrentInventorySlot = slot;	
-	InitPlacementController(true);
-	m_iCameraState = CAMERA_PLACEMENT;	// Enter placement mode
 }
-
-
 
 
 //-----------------------------------------------------------------------------
@@ -547,12 +501,12 @@ void CWeaponCamera::SetScale(bool scaleUp)
 	}
 
 	Msg("Preparing to scale");
-	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(m_vInventory[m_iCurrentInventorySlot].GetEntity());
+	CBaseAnimating* placementEntity = dynamic_cast<CBaseAnimating*>(m_vInventory[m_iCurrentInventorySlot].GetEntity());
 
 	// Get current scale index
 	int currentScaleIndex = 0;
 	while (currentScaleIndex < CameraScalesLen) {
-		if (CameraScales[currentScaleIndex] == baseEntity->GetModelScale()) {
+		if (CameraScales[currentScaleIndex] == placementEntity->GetModelScale()) {
 			break;
 		}
 		currentScaleIndex++;
@@ -572,14 +526,8 @@ void CWeaponCamera::SetScale(bool scaleUp)
 	}
 
 	Msg("Scaling object...");
-	// Detach entity (but do not hide)
-	DeInitPlacementController(false);
-
 	// Custom function in props.cpp to fix scale physics
-	UTIL_CreateScaledCameraPhysObject(baseEntity, CameraScales[currentScaleIndex], CAMERA_SCALE_RATE);
-
-	// Re-initialise placement controller (because the vphysics object changed)
-	InitPlacementController(false);
-
+	UTIL_CreateScaledCameraPhysObject(placementEntity, CameraScales[currentScaleIndex], CAMERA_SCALE_RATE);
+	//placementEntity->SetModelScale(CameraScales[currentScaleIndex], 0);
 	m_flNextScale = gpGlobals->curtime + CAMERA_SCALE_RATE;
 }
