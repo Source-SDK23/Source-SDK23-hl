@@ -683,6 +683,11 @@ void UTIL_TraceEntity( CBaseEntity *pEntity, const Vector &vecAbsStart, const Ve
 #else
 	enginetrace->SweepCollideable( pCollision, vecAbsStart, vecAbsEnd, pCollision->GetCollisionAngles(), mask, pFilter, ptr );
 #endif
+
+	if (r_visualizetraces.GetBool())
+	{
+		DebugDrawLine(ptr->startpos, ptr->endpos, 0, 0, 255, true, -1.0f);
+	}
 }
 
 // ----
