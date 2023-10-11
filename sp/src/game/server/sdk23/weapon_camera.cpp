@@ -56,7 +56,7 @@ static const char* CaptureBlacklist[] = { // Never capture these entities
 // Handles scaling control
 void CameraScale_f(const CCommand& args) {
 	if (args.ArgC() < 1 || !args.Arg(1)) {
-		Msg("Usage: camera_scale <1|0>\n"); // Scale UP (1) or DOWN (0)
+		Msg("Usage: camera_scale <1|0>\n");
 		return;
 	}
 
@@ -80,7 +80,7 @@ ConCommand CameraScale("camera_scale", CameraScale_f, "camera_scale 1", 0);
 // Handles changing camera slot control
 void CameraSlot_f(const CCommand& args) {
 	if (args.ArgC() < 1 || !args.Arg(1)) {
-		Msg("Usage: camera_slot <slotno>\n");
+		Msg("Usage: camera_slot <slot#>\n");
 		return;
 	}
 
