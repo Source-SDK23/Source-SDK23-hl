@@ -461,45 +461,7 @@ void CWeaponCamera::DeInitPlacementController(bool hideEntity) {
 // Purpose: Handle placement mode logic via the controller
 //-----------------------------------------------------------------------------
 void CWeaponCamera::PlacementThink(void) {
-	// Get the current inventory slot and coresponding entity
-	CBasePlayer* pOwner = ToBasePlayer(GetOwner());
-	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
-	CBaseEntity* baseEntity = dynamic_cast<CBaseEntity*>(camEntity.GetEntity()); // Get the actual captured entity
-
-
-
-	// Create raycast
-	trace_t	tr;
-	CTraceFilterSkipTwoEntities traceFilter(pOwner, baseEntity, COLLISION_GROUP_NONE);
-	Ray_t ray;
-
-	Vector start = pOwner->Weapon_ShootPosition();
-
-	Vector forward;
-	AngleVectors(pOwner->EyeAngles(), &forward);
-	Vector end = start + (forward * MAX_TRACE_LENGTH);
-	ray.Init(start, end);
-	enginetrace->TraceRay(ray, MASK_SOLID, &traceFilter, &tr);
-	
-
-
-	// Store final position for object
-	Vector position = tr.endpos;
-
-	// Get object bounding box info
-	Vector obbMins = baseEntity->CollisionProp()->OBBMins();
-	Vector obbMaxs = baseEntity->CollisionProp()->OBBMaxs();
-	Vector obbSize = baseEntity->CollisionProp()->OBBSize();
-	
-	// Now do 6 tracehulls
-	UTIL_TraceHull(tr.endpos, Vector(0, MAX_TRACE_LENGTH, 0), obbMins, obbMaxs, MASK_SOLID, &traceFilter, &tr);
-	// Now calculate how much room that gives the entity
-	Vector traceLen = tr.endpos - tr.startpos;
-	if (traceLen.y < obbSize.y / 2) { // TODO: do not use obbsize, just use obbmaxs for this
-
-	}
-
-	
+	m_placementController.UpdateObject(ToBasePlayer(GetOwner()));
 	SetNextThink(gpGlobals->curtime + 0.1f);
 }
 

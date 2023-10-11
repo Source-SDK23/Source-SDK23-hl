@@ -315,6 +315,8 @@ $Project "Server (SDK23)"
 			$File	"sdk23\prop_laser_relay.cpp"
 			$File	"sdk23\prop_weighted_cube.h"
 			$File	"sdk23\prop_weighted_cube.cpp"
+			$File	"sdk23\camera_placement.cpp"
+			$File	"sdk23\camera_placement.h"
 		}
 	}
 }
