@@ -130,7 +130,7 @@ void CCameraEntity::CaptureEntity(void) {
 	m_iEffects = baseEntity->GetEffects();
 	m_bAwake = baseEntity->VPhysicsGetObject()->IsGravityEnabled() || baseEntity->VPhysicsGetObject()->IsMotionEnabled();
 
-	//baseEntity->SetSolid(SOLID_NONE);
+	baseEntity->SetSolid(SOLID_NONE);
 	baseEntity->SetMoveType(MOVETYPE_NONE);
 
 	HideEntity();
@@ -400,6 +400,54 @@ void CWeaponCamera::SecondaryAttack(void)
 
 
 //-----------------------------------------------------------------------------
+// Purpose: Get Distance of arbritary targetPoint to plane described by normal and planePoint
+//-----------------------------------------------------------------------------
+float GetPointDistanceToPlane(Vector normal, Vector planePoint, Vector targetPoint) {
+	float distance = (normal.Dot(targetPoint) - planePoint.Dot(normal)) / normal.Length();
+	return distance;
+}
+
+
+Vector GetHullOffsetFromPlane(Vector absPos, QAngle absAngles, Vector hullMins, Vector hullMaxs, Vector planeNormal, Vector planePoint) {
+	Vector obbPoints[8] = {
+
+		// Lower Face of OBB
+		Vector(hullMins.x, hullMins.y, hullMins.z), // 0,0,0
+		Vector(hullMins.x, hullMaxs.y, hullMins.z), // 0,1,0
+		Vector(hullMaxs.x, hullMaxs.y, hullMins.z), // 1,1,0
+		Vector(hullMaxs.x, hullMins.y, hullMins.z), // 1,0,0
+
+		// Top Face of OBB
+		Vector(hullMins.x, hullMins.y, hullMaxs.z), // 0,0,1
+		Vector(hullMins.x, hullMaxs.y, hullMaxs.z), // 0,1,1
+		Vector(hullMaxs.x, hullMaxs.y, hullMaxs.z), // 1,1,1
+		Vector(hullMaxs.x, hullMins.y, hullMaxs.z), // 1,0,1
+	};
+
+	// Now calculate the distance of each point to the plane keeping rotation in mind
+	float highestDistance = 0; // Will only get distances greater than 0
+	float currentDistance = 0;
+
+	for (int i = 0; i < 8; i++) {
+		Vector currentPoint;
+		VectorRotate(obbPoints[i], absAngles, currentPoint); // Rotate OBB point about origin accoridng to entity rotation
+
+		// After rotating OBB point about origin, offset by absPos to get actual OBB point in world
+		currentPoint += absPos;
+
+		currentDistance = GetPointDistanceToPlane(planeNormal, planePoint, currentPoint);
+		if (currentDistance > highestDistance) {
+			highestDistance = currentDistance;
+		}
+		//Msg("\nDistance: (%f, %f, %f) - %f", obbPoints[i].x, obbPoints[i].y, obbPoints[i].z, currentDistance);
+	}
+
+	Vector offset = planeNormal * highestDistance;	
+	return offset;
+}
+
+
+//-----------------------------------------------------------------------------
 // Purpose: Handle placement mode
 //-----------------------------------------------------------------------------
 void CWeaponCamera::PlacementThink(void)
@@ -427,19 +475,17 @@ void CWeaponCamera::PlacementThink(void)
 	Vector obbMins = baseEntity->CollisionProp()->OBBMins();
 	Vector obbMaxs = baseEntity->CollisionProp()->OBBMaxs();
 	Vector obbSize = baseEntity->CollisionProp()->OBBSize();
-	float boundingRadius = baseEntity->CollisionProp()->BoundingRadius();
+	
 
-	//First, offset the entity by the bounding radius
-	// TODO: When to use boundingRadius 2D for cuboidial object
-	// TODO: Replace with RAW MATH
+	//First, offset the entity from the initial trace position
 	Vector endPosition = tr.endpos;
-	endPosition += tr.plane.normal * boundingRadius;
+	endPosition += GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, tr.plane.normal, tr.endpos);
 	baseEntity->SetAbsOrigin(endPosition);
 
 
-
 	// Now, run 6 tracelines to find where the object is clipping and offset by those axis
-	// TODO: Use math to find extent of rotated obb at specified normal
+	// TODO: More accurate alternative to UTIL_TraceLine (something that would ideally do a proper plane/hull/collider trace with respect to angles)
+	//       
 	trace_t trXp;
 	UTIL_TraceLine(endPosition, endPosition + (Vector(1, 0, 0) * obbSize/2), MASK_SOLID, &traceFilter, &trXp);
 	trace_t trXn;
@@ -453,67 +499,25 @@ void CWeaponCamera::PlacementThink(void)
 	trace_t trZn;
 	UTIL_TraceLine(endPosition, endPosition + (Vector(0, 0, -1) * obbSize / 2), MASK_SOLID, &traceFilter, &trZn);
 
-	// Create offset position
+	// Now, offset properly from the planes that we are clipping through
 	if (trXp.DidHit() && trXp.plane.normal.x != 0) {
-		endPosition -= (Vector(1, 0, 0) * obbSize / 2);
+		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trXp.plane.normal * Vector(-1,-1,-1), trXp.endpos);
 	}
 	else if (trXn.DidHit() && trXn.plane.normal.x != 0) {
-		endPosition -= (Vector(-1, 0, 0) * obbSize / 2);
+		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trXn.plane.normal * Vector(-1, -1, -1), trXn.endpos);
 	}
 	if (trYp.DidHit() && trYp.plane.normal.y != 0) {
-		endPosition -= (Vector(0, 1, 0) * obbSize / 2);
+		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trYp.plane.normal * Vector(-1, -1, -1), trYp.endpos);
 	}
 	else if (trYn.DidHit() && trYn.plane.normal.y != 0) {
-		endPosition -= (Vector(0, -1, 0) * obbSize / 2);
+		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trYn.plane.normal * Vector(-1, -1, -1), trYn.endpos);
 	}
 	if (trZp.DidHit() && trZp.plane.normal.z != 0) {
-		endPosition -= (Vector(0, 0, 1) * obbSize / 2);
+		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trZp.plane.normal * Vector(-1, -1, -1), trZp.endpos);
 	}
 	else if (trZn.DidHit() && trZn.plane.normal.z != 0) {
-		endPosition -= (Vector(0, 0, -1) * obbSize / 2);
+		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trZn.plane.normal * Vector(-1, -1, -1), trZn.endpos);
 	}
-
-
-
-	// Now, trace towards the axis we just moved away from
-	// This means the object will now snap to the surface of the axis
-	// TODO: Redundant after PURE math method is implemented
-	if (trXp.DidHit() && trXp.plane.normal.x != 0) {
-		trace_t trEXp;
-		UTIL_TraceEntity(baseEntity, endPosition, endPosition + (Vector(1, 0, 0) * obbSize), MASK_SOLID, &traceFilter, &trEXp);
-		endPosition.x = trEXp.endpos.x;
-	}
-	else if (trXn.DidHit() && trXn.plane.normal.x != 0) {
-		trace_t trEXn;
-		UTIL_TraceEntity(baseEntity, endPosition, endPosition + (Vector(-1, 0, 0) * obbSize), MASK_SOLID, &traceFilter, &trEXn);
-		endPosition.x = trEXn.endpos.x;
-	}
-	if (trYp.DidHit() && trYp.plane.normal.y != 0) {
-		trace_t trEYp;
-		UTIL_TraceEntity(baseEntity, endPosition, endPosition + (Vector(0, 1, 0) * obbSize), MASK_SOLID, &traceFilter, &trEYp);
-		endPosition.y = trEYp.endpos.y;
-	}
-	else if (trYn.DidHit() && trYn.plane.normal.y != 0) {
-		trace_t trEYn;
-		UTIL_TraceEntity(baseEntity, endPosition, endPosition + (Vector(0, -1, 0) * obbSize), MASK_SOLID, &traceFilter, &trEYn);
-		endPosition.y = trEYn.endpos.y;
-	}
-	if (trZp.DidHit() && trZp.plane.normal.z != 0) {
-		trace_t trEZp;
-		UTIL_TraceEntity(baseEntity, endPosition, endPosition + (Vector(0, 0, 1) * obbSize), MASK_SOLID, &traceFilter, &trEZp);
-		endPosition.z = trEZp.endpos.z;
-	}
-	else if (trZn.DidHit() && trZn.plane.normal.z != 0) {
-		trace_t trEZn;
-		UTIL_TraceEntity(baseEntity, endPosition, endPosition + (Vector(0, 0, -1) * obbSize), MASK_SOLID, &traceFilter, &trEZn);
-		endPosition.z = trEZn.endpos.z;
-	}
-
-	// Temporary fix for the initial trace normal offset being innacurate
-	// TODO: implement the math method
-	trace_t trEN;
-	UTIL_TraceEntity(baseEntity, endPosition, endPosition - (tr.plane.normal * boundingRadius), MASK_SOLID, &traceFilter, &trEN);
-	endPosition = trEN.endpos;
 
 	// Debug info
 	Msg("\n\n");
