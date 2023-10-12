@@ -398,7 +398,6 @@ void CWeaponCamera::SecondaryAttack(void)
 	SetNextThink(gpGlobals->curtime + 0.1f);
 }
 
-
 //-----------------------------------------------------------------------------
 // Purpose: Handle placement mode
 //-----------------------------------------------------------------------------
@@ -411,7 +410,7 @@ void CWeaponCamera::PlacementThink(void)
 
 	CCameraEntity camEntity = m_vInventory[m_iCurrentInventorySlot];
 	CBaseAnimating* baseEntity = dynamic_cast<CBaseAnimating*>(camEntity.GetEntity());
-	IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
+	//IPhysicsObject* pObject = baseEntity->VPhysicsGetObject();
 
 	Vector facingVector;
 	AngleVectors(pOwner->EyeAngles(), &facingVector);
@@ -430,47 +429,74 @@ void CWeaponCamera::PlacementThink(void)
 	Vector obbSize = baseEntity->CollisionProp()->OBBSize();
 	float boundingRadius = baseEntity->CollisionProp()->BoundingRadius();
 
-	//baseEntity->SetLocalAngles(baseEntity->GetLocalAngles() + QAngle(0, 2, 0));
+	//First, offset the entity by the bounding radius
+	// TODO: When to use boundingRadius 2D for cuboidial object
 	Vector endPosition = tr.endpos;
-
-	// Offset endPosition in opposite direction to normal
-	trace_t trNormal;
-	UTIL_TraceLine(endPosition + (tr.plane.normal * boundingRadius), endPosition, MASK_SOLID, &traceFilter, &trNormal);
-	endPosition = trNormal.endpos;
-
+	endPosition += tr.plane.normal * boundingRadius;
 	baseEntity->SetAbsOrigin(endPosition);
 
-	// Run 6 entitytraces, one in each direction to determine the normals to offset by
+	// Now, run 6 tracelines and offset by those axis
+	// TODO: Use math to find extent of rotated obb at specified normal
 	trace_t trXp;
-	UTIL_TraceEntity(baseEntity, endPosition - (Vector(1, 0, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trXp);
+	UTIL_TraceLine(endPosition, endPosition + (Vector(1, 0, 0) * obbSize/2), MASK_SOLID, &traceFilter, &trXp);
 	trace_t trXn;
-	UTIL_TraceEntity(baseEntity, endPosition - (Vector(-1, 0, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trXn);
-	trace_t trYp;
-	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, 1, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trYp);
-	trace_t trYn;
-	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, -1, 0) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trYn);
-	trace_t trZp;
-	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, 0, 1) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trZp);
-	trace_t trZn;
-	UTIL_TraceEntity(baseEntity, endPosition - (Vector(0, 0, -1) * obbSize), endPosition, MASK_SOLID, &traceFilter, &trZn);
-
-	// Calculate final offset vector
+	UTIL_TraceLine(endPosition, endPosition + (Vector(-1, 0, 0) * obbSize/2), MASK_SOLID, &traceFilter, &trXn);
+	
 	if (trXp.DidHit() && trXp.plane.normal.x != 0) {
-		endPosition.x = trXp.endpos.x;
-	} else if (trXn.DidHit() && trXn.plane.normal.x != 0) {
-		endPosition.x = trXn.endpos.x;
+		trace_t trEXp;
+		UTIL_TraceEntity(baseEntity, trXp.endpos - (Vector(1, 0, 0) * obbSize), trXp.endpos, MASK_SOLID, &traceFilter, &trEXp);
+
+		endPosition.x = trEXp.endpos.x;
 	}
+	else if (trXn.DidHit() && trXn.plane.normal.x != 0) {
+		trace_t trEXn;
+		UTIL_TraceEntity(baseEntity, trXn.endpos - (Vector(-1, 0, 0) * obbSize), trXn.endpos, MASK_SOLID, &traceFilter, &trEXn);
+
+		endPosition.x = trEXn.endpos.x;
+	}
+	
+
+	trace_t trYp;
+	UTIL_TraceLine(endPosition, endPosition + (Vector(0, 1, 0) * obbSize / 2), MASK_SOLID, &traceFilter, &trYp);
+	trace_t trYn;
+	UTIL_TraceLine(endPosition, endPosition + (Vector(0, -1, 0) * obbSize / 2), MASK_SOLID, &traceFilter, &trYn);
+
 	if (trYp.DidHit() && trYp.plane.normal.y != 0) {
-		endPosition.y = trYp.endpos.y;
-	} else if (trYn.DidHit() && trYn.plane.normal.y != 0) {
-		endPosition.y = trYn.endpos.y;
+		trace_t trEYp;
+		UTIL_TraceEntity(baseEntity, trYp.endpos - (Vector(0, 1, 0) * obbSize), trYp.endpos, MASK_SOLID, &traceFilter, &trEYp);
+
+		endPosition.y = trEYp.endpos.y;
 	}
+	else if (trYn.DidHit() && trYn.plane.normal.y != 0) {
+		trace_t trEYn;
+		UTIL_TraceEntity(baseEntity, trYn.endpos - (Vector(0, -1, 0) * obbSize), trYn.endpos, MASK_SOLID, &traceFilter, &trEYn);
+
+		endPosition.y = trEYn.endpos.y;
+	}
+
+
+	trace_t trZp;
+	UTIL_TraceLine(endPosition, endPosition + (Vector(0, 0, 1) * obbSize / 2), MASK_SOLID, &traceFilter, &trZp);
+	trace_t trZn;
+	UTIL_TraceLine(endPosition, endPosition + (Vector(0, 0, -1) * obbSize / 2), MASK_SOLID, &traceFilter, &trZn);
+
 	if (trZp.DidHit() && trZp.plane.normal.z != 0) {
-		endPosition.z = trZp.endpos.z;
-	} else if (trZn.DidHit() && trZn.plane.normal.z != 0) {
-		endPosition.z = trZn.endpos.z;
+		trace_t trEZp;
+		UTIL_TraceEntity(baseEntity, trZp.endpos - (Vector(0, 0, 1) * obbSize), trZp.endpos, MASK_SOLID, &traceFilter, &trEZp);
+
+		endPosition.z = trEZp.endpos.z;
 	}
-	baseEntity->SetAbsOrigin(endPosition);
+	else if (trZn.DidHit() && trZn.plane.normal.z != 0) {
+		trace_t trEZn;
+		UTIL_TraceEntity(baseEntity, trZn.endpos - (Vector(0, 0, -1) * obbSize), trZn.endpos, MASK_SOLID, &traceFilter, &trEZn);
+
+		endPosition.z = trEZn.endpos.z;
+	}
+
+	// Finally, traceEntity back towards the initial endpos
+	//trace_t trEN;
+	//UTIL_TraceEntity(baseEntity, endPosition, tr.endpos, MASK_SOLID, &traceFilter, &trEN);
+	//endPosition = trEN.endpos;
 
 	Msg("\n\n");
 	Msg("\nNormalX+: (%f, %f, %f)", trXp.plane.normal.x, trXp.plane.normal.y, trXp.plane.normal.z);
@@ -481,9 +507,7 @@ void CWeaponCamera::PlacementThink(void)
 	Msg("\nNormalZ-: (%f, %f, %f)", trZn.plane.normal.x, trZn.plane.normal.y, trZn.plane.normal.z);
 
 	// Slide along the current contact points to fix bouncing problems
-	Vector velocity;
-	AngularImpulse angVel;
-	pObject->GetVelocity(&velocity, &angVel);
+	baseEntity->SetAbsOrigin(endPosition);
 
 	SetNextThink(gpGlobals->curtime);// +0.1f);
 	camEntity.ShowEntity();
