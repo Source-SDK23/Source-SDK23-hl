@@ -410,7 +410,6 @@ float GetPointDistanceToPlane(Vector normal, Vector planePoint, Vector targetPoi
 
 Vector GetHullOffsetFromPlane(Vector absPos, QAngle absAngles, Vector hullMins, Vector hullMaxs, Vector planeNormal, Vector planePoint) {
 	Vector obbPoints[8] = {
-
 		// Lower Face of OBB
 		Vector(hullMins.x, hullMins.y, hullMins.z), // 0,0,0
 		Vector(hullMins.x, hullMaxs.y, hullMins.z), // 0,1,0
@@ -447,6 +446,85 @@ Vector GetHullOffsetFromPlane(Vector absPos, QAngle absAngles, Vector hullMins, 
 }
 
 
+//-----------------------------------------------------------------------------
+// Purpose: Sweep an axis-aligned shadow of the object in a specified normal (normal has to be axis-aligned)
+//-----------------------------------------------------------------------------
+void TraceSplosion(Vector vecAbsStart, Vector vecAbsEnd, QAngle absAngles, Vector hullMins, Vector hullMaxs, Vector shadowNormal, unsigned int mask, ITraceFilter* pFilter, trace_t* ptr) {
+	assert(shadowNormal.Length() == 1);
+
+	Vector absShadowNormal;
+	VectorAbs(shadowNormal, absShadowNormal);
+
+	int vectorDirection = -1;
+
+	int traceVSegments = 10;
+	int traceHSegments = 10;
+
+	Vector planeMins; // 0,0,0
+	Vector planeMaxs; // 0,1,1
+
+	float vSegmentLength=0;
+	float hSegmentLength=0;
+
+	Vector vDir;
+	Vector hDir;
+
+	if (absShadowNormal.x == 1) {
+		vectorDirection = 0;
+		planeMins = Vector(0, hullMins.y, hullMins.z); // 0,0,0
+		planeMaxs = Vector(0, hullMaxs.y, hullMaxs.z); // 0,1,1
+
+		vSegmentLength = (hullMaxs - hullMins).y / traceVSegments;
+		hSegmentLength = (hullMaxs - hullMins).z / traceHSegments;
+
+		vDir = Vector(0, 1, 0);
+		hDir = Vector(0, 0, 1);
+	}
+	else if (absShadowNormal.y == 1) {
+		vectorDirection = 1;
+		planeMins = Vector(hullMins.x, 0, hullMins.z); // 0,0,0
+		planeMaxs = Vector(hullMaxs.x, 0, hullMaxs.z); // 1,0,1
+
+		vSegmentLength = (hullMaxs - hullMins).x / traceVSegments;
+		hSegmentLength = (hullMaxs - hullMins).z / traceHSegments;
+
+		vDir = Vector(1, 0, 0);
+		hDir = Vector(0, 0, 1);
+	}
+	else if (absShadowNormal.z == 1) {
+		vectorDirection = 2;
+		planeMins = Vector(hullMins.x, hullMins.y, 0); // 0,0,0
+		planeMaxs = Vector(hullMaxs.x, hullMaxs.y, 0); // 1,1,0
+
+		vSegmentLength = (hullMaxs - hullMins).x / traceVSegments;
+		hSegmentLength = (hullMaxs - hullMins).y / traceHSegments;
+
+		vDir = Vector(1, 0, 0);
+		hDir = Vector(0, 1, 0);
+	}
+	Assert(vectorDirection != -1);
+
+
+	//Vector hullMin;
+	//Vector hullMax;
+	//VectorRotate(obbPoints[vectorDirection][0], absAngles, hullMin); // Rotate OBB point about origin accoridng to entity rotation
+	//VectorRotate(obbPoints[vectorDirection][1], absAngles, hullMax); // Rotate OBB point about origin accoridng to entity rotation
+
+	for (int v = 0; v <= traceVSegments; v++) {
+		for (int h = 0; h <= traceHSegments; h++) {
+			Vector traceCoordinate = planeMins + (vDir * (vSegmentLength * v)) + (hDir * (hSegmentLength * h));
+
+			Vector rotatedTC;
+			VectorRotate(traceCoordinate, absAngles, rotatedTC);
+
+			rotatedTC += vecAbsStart;
+
+			UTIL_TraceLine(rotatedTC, rotatedTC + (shadowNormal * MAX_TRACE_LENGTH), mask, pFilter, ptr);
+		}
+	}
+}
+
+ 
 //-----------------------------------------------------------------------------
 // Purpose: Handle placement mode
 //-----------------------------------------------------------------------------
@@ -518,6 +596,10 @@ void CWeaponCamera::PlacementThink(void)
 	else if (trZn.DidHit() && trZn.plane.normal.z != 0) {
 		endPosition -= GetHullOffsetFromPlane(endPosition, baseEntity->GetAbsAngles(), obbMins, obbMaxs, trZn.plane.normal * Vector(-1, -1, -1), trZn.endpos);
 	}
+
+	// Run tracesplosion to test
+	trace_t tracesplosion;
+	TraceSplosion(endPosition, endPosition + (tr.plane.normal * -MAX_TRACE_LENGTH), baseEntity->GetAbsAngles(), obbMins, obbMaxs, tr.plane.normal * -1, MASK_SOLID, &traceFilter, &tracesplosion);
 
 	// Debug info
 	Msg("\n\n");
