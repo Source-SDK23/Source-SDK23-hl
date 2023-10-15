@@ -435,6 +435,7 @@ void CWeaponCamera::PlacementThink(void)
 	Vector endPosition = tr.endpos;
 	endPosition += tr.plane.normal * boundingRadius;
 	baseEntity->SetAbsOrigin(endPosition);
+	baseEntity->SetAbsAngles(QAngle(0, pOwner->EyeAngles().y, 0)); // Mimick Exposure's "lack of" rotation
 
 
 
