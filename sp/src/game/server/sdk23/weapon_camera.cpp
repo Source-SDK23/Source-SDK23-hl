@@ -505,11 +505,7 @@ void TraceSplosion(Vector vecAbsStart, Vector vecAbsEnd, QAngle absAngles, Vecto
 	Assert(vectorDirection != -1);
 
 
-	//Vector hullMin;
-	//Vector hullMax;
-	//VectorRotate(obbPoints[vectorDirection][0], absAngles, hullMin); // Rotate OBB point about origin accoridng to entity rotation
-	//VectorRotate(obbPoints[vectorDirection][1], absAngles, hullMax); // Rotate OBB point about origin accoridng to entity rotation
-
+	
 	for (int v = 0; v <= traceVSegments; v++) {
 		for (int h = 0; h <= traceHSegments; h++) {
 			Vector traceCoordinate = planeMins + (vDir * (vSegmentLength * v)) + (hDir * (hSegmentLength * h));
